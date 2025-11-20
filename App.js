@@ -13,6 +13,8 @@ import BluetoothScreen from './src/screens/BluetoothScreen';
 import LocationScreen from './src/screens/LocationScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import DebugScreen from "./src/screens/DebugScreen";
+import RelationsScreen from "./src/screens/RelationsScreen";
+import PatientDetailScreen from "./src/screens/PatientDetailScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -46,6 +48,8 @@ const AppNavigator = () => {
                         <Stack.Screen name="Location" component={LocationScreen} />
                         <Stack.Screen name="History" component={HistoryScreen} />
                         <Stack.Screen name="Debug" component={DebugScreen} />
+                        <Stack.Screen name="Relations" component={RelationsScreen} />
+                        <Stack.Screen name="PatientDetail" component={PatientDetailScreen} />
                     </>
                 )}
             </Stack.Navigator>
