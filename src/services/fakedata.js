@@ -9,6 +9,7 @@ class FakeDataGenerator {
             heartRate: { min: 50, max: 120, normal: { min: 60, max: 100 } },
             batteryLevel: { min: 0, max: 100 },
             fallProbability: 0.02,
+            stepIncrement: { min: 0, max: 3 },
         };
         this.currentState = {
             spo2: 98,
@@ -16,6 +17,8 @@ class FakeDataGenerator {
             batteryLevel: 85,
             fallDetected: false,
             isCharging: false,
+            step: 0,
+            isWalking: false,
         };
     }
 
@@ -73,6 +76,43 @@ class FakeDataGenerator {
     }
 
     /**
+     * Update step count - Tăng số bước chân
+     */
+    updateStepCount() {
+        // Random quyết định có đang đi bộ không (70% chance đang đi)
+        if (Math.random() < 0.7) {
+            this.currentState.isWalking = true;
+        } else {
+            this.currentState.isWalking = false;
+        }
+
+        // Nếu đang đi bộ, tăng số bước
+        if (this.currentState.isWalking) {
+            const increment = this.randomInRange(
+                this.ranges.stepIncrement.min,
+                this.ranges.stepIncrement.max
+            );
+            this.currentState.step += increment;
+
+            // Khi đi bộ, heart rate tăng nhẹ
+            if (this.currentState.heartRate < 100) {
+                this.currentState.heartRate = Math.min(
+                    100,
+                    this.currentState.heartRate + 1
+                );
+            }
+        } else {
+            // Khi đứng yên, heart rate giảm về bình thường
+            if (this.currentState.heartRate > 75) {
+                this.currentState.heartRate = Math.max(
+                    75,
+                    this.currentState.heartRate - 1
+                );
+            }
+        }
+    }
+
+    /**
      * Generate một data point
      */
     generateData() {
@@ -92,6 +132,9 @@ class FakeDataGenerator {
             3 // Thay đổi tối đa 3 đơn vị mỗi lần
         );
 
+        // Update step count
+        this.updateStepCount();
+
         // Heart Rate Valid: 95% chance là valid
         const heartRateValid = Math.random() > 0.05;
 
@@ -99,6 +142,7 @@ class FakeDataGenerator {
         const fallDetected = Math.random() < this.ranges.fallProbability;
         if (fallDetected) {
             this.currentState.fallDetected = true;
+            this.currentState.isWalking = false; // Ngừng đi khi té
             // Sau 5 giây tự reset fall detection
             setTimeout(() => {
                 this.currentState.fallDetected = false;
@@ -106,7 +150,9 @@ class FakeDataGenerator {
         }
 
         // Battery Level: giảm dần nếu không sạc
-        if (!this.currentState.isCharging && Math.random() > 0.95) {
+        // Đi bộ làm pin giảm nhanh hơn
+        const batteryDrainChance = this.currentState.isWalking ? 0.90 : 0.95;
+        if (!this.currentState.isCharging && Math.random() > batteryDrainChance) {
             this.currentState.batteryLevel = Math.max(0, this.currentState.batteryLevel - 1);
         }
 
@@ -141,6 +187,8 @@ class FakeDataGenerator {
             timestamp: Date.now(),
             deviceId: 'ESP32-001',
             firmwareVersion: '1.0',
+            step: this.currentState.step, // ← THÊM MỚI
+            isWalking: this.currentState.isWalking, // ← THÊM MỚI (optional)
         };
     }
 
@@ -206,6 +254,8 @@ class FakeDataGenerator {
             batteryLevel: 85,
             fallDetected: false,
             isCharging: false,
+            step: 0, // Reset về 0
+            isWalking: false,
         };
         console.log('🔄 Reset state về mặc định');
     }
@@ -222,6 +272,7 @@ class FakeDataGenerator {
      */
     triggerFall() {
         this.currentState.fallDetected = true;
+        this.currentState.isWalking = false; // Ngừng đi khi té
         setTimeout(() => {
             this.currentState.fallDetected = false;
         }, 5000);
@@ -239,6 +290,41 @@ class FakeDataGenerator {
      */
     toggleCharging() {
         this.currentState.isCharging = !this.currentState.isCharging;
+    }
+
+    /**
+     * Set step count - MỚI
+     */
+    setStepCount(count) {
+        this.currentState.step = Math.max(0, count);
+    }
+
+    /**
+     * Add steps - MỚI
+     */
+    addSteps(count) {
+        this.currentState.step += count;
+    }
+
+    /**
+     * Reset step count - MỚI
+     */
+    resetSteps() {
+        this.currentState.step = 0;
+    }
+
+    /**
+     * Toggle walking state - MỚI
+     */
+    toggleWalking() {
+        this.currentState.isWalking = !this.currentState.isWalking;
+    }
+
+    /**
+     * Set walking state - MỚI
+     */
+    setWalking(isWalking) {
+        this.currentState.isWalking = isWalking;
     }
 }
 
