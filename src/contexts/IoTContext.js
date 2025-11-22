@@ -5,7 +5,6 @@ import { Platform, PermissionsAndroid, Alert } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
 import fakeDataGenerator from "../services/fakedata";
-
 // import
 import apiService from "../services/api.service";
 

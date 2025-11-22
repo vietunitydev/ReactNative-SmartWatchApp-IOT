@@ -121,6 +121,16 @@ const RecordService = {
     }
 };
 
+const FallService = {
+    save: (fallData) => {
+        return api.post('/save-fall-event', fallData);
+    },
+
+    getFalls: (username) => {
+        return api.get('/get-fall-events?username=' + username);
+    }
+};
+
 
 // Helper function để giả lập network delay
 const simulateDelay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
@@ -225,71 +235,20 @@ class ApiService {
             return response
         }
     }
-    // ============ Real-time Data APIs ============
-
-    /**
-     * Lấy nhịp tim realtime
-     */
-    async getHeartRate(userId) {
-        await simulateDelay(200);
-
-        return createResponse({
-            userId,
-        });
-    }
-
-    /**
-     * Lấy trạng thái hiện tại (bình thường / đang chạy / té ngã)
-     */
-    async getStatus(userId) {
-        await simulateDelay(200);
-
-        return createResponse({
-            userId,
-        });
-    }
-
-    /**
-     * Cập nhật trạng thái (từ thiết bị IoT)
-     */
-    async updateStatus(userId, status) {
-        await simulateDelay(200);
-
-        return createResponse({
-            userId,
-            status,
-            message: 'Cập nhật trạng thái thành công'
-        });
-    }
 
     /**
      * Phát hiện té ngã
      */
-    async detectFall(userId, fallData) {
-        await simulateDelay(300);
-
-        console.log('⚠️ Phát hiện té ngã!', fallData);
-
-        return createResponse({
-            userId,
-            fallDetected: true,
-            timestamp: new Date().toISOString(),
-            message: 'Đã ghi nhận sự cố té ngã'
-        });
+    async detectFall(fallData) {
+        const response = await FallService.save(fallData);
+        if (response) {
+            return response
+        }
     }
+    // ============ Real-time Data APIs ============
 
 
-    // ============ History APIs ============
 
-    /**
-     * Lấy lịch sử đo
-     */
-    async getMeasurementHistory(userId, limit = 50) {
-        await simulateDelay(300);
-
-        return createResponse({
-        });
-    }
 
     // ============ Family/Watcher APIs ============
 

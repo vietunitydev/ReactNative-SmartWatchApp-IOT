@@ -12,6 +12,8 @@ import {
     Vibration,
 } from 'react-native';
 import { useIoT } from '../contexts/IoTContext';
+import apiService from "../services/api.service";
+import Geolocation from '@react-native-community/geolocation';
 
 const { width, height } = Dimensions.get('window');
 
@@ -35,31 +37,66 @@ const FallAlertModal = () => {
     }, [sensorData.fallDetected]);
 
     const handleFallDetected = () => {
-        // Save fall data
-        setFallData({
-            time: new Date().toLocaleTimeString('vi-VN'),
-            date: new Date().toLocaleDateString('vi-VN'),
-            spo2: sensorData.spo2,
-            heartRate: sensorData.heartRate,
-            severity: sensorData.severity,
-            deviceId: sensorData.deviceId,
-        });
+        Geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
 
-        // Show modal
-        setVisible(true);
+                setFallData({
+                    time: new Date().toLocaleTimeString('vi-VN'),
+                    date: new Date().toLocaleDateString('vi-VN'),
+                    spo2: sensorData.spo2,
+                    heartRate: sensorData.heartRate,
+                    severity: sensorData.severity,
+                    deviceId: sensorData.deviceId,
+                    latitude,
+                    longitude,
+                });
 
-        // Vibrate pattern: [wait, vibrate, wait, vibrate]
-        if (Platform.OS === 'android') {
-            Vibration.vibrate([0, 500, 200, 500, 200, 500], false);
-        } else {
-            Vibration.vibrate([500, 200, 500, 200, 500]);
-        }
+                setVisible(true);
+                startAnimations();
 
-        // Start animations
-        startAnimations();
+                // vibrate
+                if (Platform.OS === 'android') {
+                    Vibration.vibrate([0, 500, 200, 500, 200, 500], false);
+                } else {
+                    Vibration.vibrate([500, 200, 500, 200, 500]);
+                }
 
-        // Optional: Play alert sound
-        // playAlertSound();
+                // ⬇⬇⬇ Gửi API detect fall
+                await apiService.detectFall({
+                    deviceId: sensorData.deviceId,
+                    severity: sensorData.severity,
+                    spo2: sensorData.spo2,
+                    heartRate: sensorData.heartRate,
+                    detectedAt: new Date().toISOString(),
+                    latitude,
+                    longitude,
+                });
+            },
+            (error) => {
+                console.log("Location error:", error);
+
+                // fallback nếu không có GPS
+                setFallData({
+                    time: new Date().toLocaleTimeString('vi-VN'),
+                    date: new Date().toLocaleDateString('vi-VN'),
+                    spo2: sensorData.spo2,
+                    heartRate: sensorData.heartRate,
+                    severity: sensorData.severity,
+                    deviceId: sensorData.deviceId,
+                    latitude: null,
+                    longitude: null,
+                });
+
+                setVisible(true);
+                startAnimations();
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 8000,
+                maximumAge: 1000,
+            }
+        );
     };
 
     const startAnimations = () => {

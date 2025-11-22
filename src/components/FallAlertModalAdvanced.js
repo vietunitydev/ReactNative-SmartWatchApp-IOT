@@ -1,4 +1,4 @@
-// FallAlertModalAdvanced.js - Modal thông báo té ngã với countdown
+// FallAlertModal.js - Modal thông báo té ngã (lấy vị trí từ điện thoại)
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Modal,
@@ -10,91 +10,110 @@ import {
     Dimensions,
     Platform,
     Vibration,
+    PermissionsAndroid,
+    Alert,
 } from 'react-native';
+import Geolocation from 'react-native-geolocation-service';
 import { useIoT } from '../contexts/IoTContext';
+import apiService from "../services/api.service";
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-const FallAlertModalAdvanced = () => {
+const FallAlertModal = () => {
     const { sensorData } = useIoT();
     const [visible, setVisible] = useState(false);
     const [fallData, setFallData] = useState(null);
-    const [countdown, setCountdown] = useState(30); // 30 giây countdown
-    const [autoCallCancelled, setAutoCallCancelled] = useState(false);
 
     // Animations
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.8)).current;
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const shakeAnim = useRef(new Animated.Value(0)).current;
-    const countdownAnim = useRef(new Animated.Value(1)).current;
 
-    // Countdown timer
-    const timerRef = useRef(null);
+    // ========= LOCATION HELPERS =========
+    const requestLocationPermission = async () => {
+        if (Platform.OS === 'android') {
+            try {
+                const granted = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                    {
+                        title: 'Quyền truy cập vị trí',
+                        message: 'Ứng dụng cần truy cập vị trí để gửi cảnh báo té ngã.',
+                        buttonPositive: 'Đồng ý',
+                        buttonNegative: 'Hủy',
+                    }
+                );
+
+                return granted === PermissionsAndroid.RESULTS.GRANTED;
+            } catch (err) {
+                console.warn('Location permission error:', err);
+                return false;
+            }
+        }
+        // iOS: quyền sẽ được hệ thống hỏi tự động lần đầu
+        return true;
+    };
+
+    const getCurrentPosition = () => {
+        return new Promise((resolve, reject) => {
+            Geolocation.getCurrentPosition(
+                (position) => resolve(position),
+                (error) => reject(error),
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 5000,
+                    forceRequestLocation: true,
+                    showLocationDialog: true,
+                }
+            );
+        });
+    };
 
     // Detect fall
     useEffect(() => {
-        if (sensorData.fallDetected && !visible) {
+        if (sensorData?.fallDetected && !visible) {
             handleFallDetected();
         }
-    }, [sensorData.fallDetected]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sensorData?.fallDetected]);
 
-    // Countdown effect
-    useEffect(() => {
-        if (visible && !autoCallCancelled && countdown > 0) {
-            timerRef.current = setTimeout(() => {
-                setCountdown(prev => prev - 1);
+    const handleFallDetected = async () => {
+        const now = new Date();
 
-                // Pulse animation for countdown
-                Animated.sequence([
-                    Animated.timing(countdownAnim, {
-                        toValue: 1.2,
-                        duration: 100,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(countdownAnim, {
-                        toValue: 1,
-                        duration: 100,
-                        useNativeDriver: true,
-                    }),
-                ]).start();
+        let latitude = null;
+        let longitude = null;
 
-                // Vibrate mỗi 5 giây
-                if (countdown % 5 === 0) {
-                    Vibration.vibrate(200);
-                }
-            }, 1000);
-        } else if (countdown === 0 && !autoCallCancelled) {
-            // Hết thời gian → Tự động gọi cấp cứu
-            handleEmergencyCall();
+        // ======== LẤY VỊ TRÍ ĐIỆN THOẠI ========
+        try {
+            const hasPermission = await requestLocationPermission();
+            if (hasPermission) {
+                const pos = await getCurrentPosition();
+                latitude = pos.coords.latitude;
+                longitude = pos.coords.longitude;
+            }
+        } catch (error) {
+            console.warn('Get location error:', error);
+            // Không có vị trí thì vẫn continue, chỉ gửi null
         }
 
-        return () => {
-            if (timerRef.current) {
-                clearTimeout(timerRef.current);
-            }
-        };
-    }, [visible, countdown, autoCallCancelled]);
-
-    const handleFallDetected = () => {
-        // Reset states
-        setCountdown(30);
-        setAutoCallCancelled(false);
-
-        // Save fall data
-        setFallData({
-            time: new Date().toLocaleTimeString('vi-VN'),
-            date: new Date().toLocaleDateString('vi-VN'),
+        // Save fall data for UI
+        const uiFallData = {
+            time: now.toLocaleTimeString('vi-VN'),
+            date: now.toLocaleDateString('vi-VN'),
             spo2: sensorData.spo2,
             heartRate: sensorData.heartRate,
             severity: sensorData.severity,
             deviceId: sensorData.deviceId,
-        });
+            latitude,
+            longitude,
+        };
+        setFallData(uiFallData);
 
         // Show modal
         setVisible(true);
 
-        // Vibrate pattern
+        // Vibrate pattern: [wait, vibrate, wait, vibrate]
         if (Platform.OS === 'android') {
             Vibration.vibrate([0, 500, 200, 500, 200, 500], false);
         } else {
@@ -103,15 +122,34 @@ const FallAlertModalAdvanced = () => {
 
         // Start animations
         startAnimations();
+
+        // Gửi API detect fall
+        try {
+            await apiService.detectFall({
+                deviceId: sensorData.deviceId,
+                severity: sensorData.severity || 'severe',
+                spo2: sensorData.spo2,
+                heartRate: sensorData.heartRate,
+                detectedAt: now.toISOString(),
+                longitude,
+                latitude,
+            });
+        } catch (e) {
+            console.warn('detectFall API error:', e?.message || e);
+            // Có thể show toast / Alert nếu cần
+            // Alert.alert('Lỗi', 'Không thể gửi dữ liệu té ngã lên server');
+        }
     };
 
     const startAnimations = () => {
+        // Fade in
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 300,
             useNativeDriver: true,
         }).start();
 
+        // Scale in
         Animated.spring(scaleAnim, {
             toValue: 1,
             friction: 5,
@@ -119,6 +157,7 @@ const FallAlertModalAdvanced = () => {
             useNativeDriver: true,
         }).start();
 
+        // Pulse animation (loop)
         Animated.loop(
             Animated.sequence([
                 Animated.timing(pulseAnim, {
@@ -134,121 +173,116 @@ const FallAlertModalAdvanced = () => {
             ])
         ).start();
 
+        // Shake animation
         Animated.sequence([
-            Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-            Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-            Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-            Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnim, {
+                toValue: 10,
+                duration: 50,
+                useNativeDriver: true,
+            }),
+            Animated.timing(shakeAnim, {
+                toValue: -10,
+                duration: 50,
+                useNativeDriver: true,
+            }),
+            Animated.timing(shakeAnim, {
+                toValue: 10,
+                duration: 50,
+                useNativeDriver: true,
+            }),
+            Animated.timing(shakeAnim, {
+                toValue: 0,
+                duration: 50,
+                useNativeDriver: true,
+            }),
         ]).start();
     };
 
-    const handleImOk = () => {
-        // Hủy auto call
-        setAutoCallCancelled(true);
+    const handleDismiss = () => {
+        // Stop vibration
         Vibration.cancel();
 
-        // Close modal
+        // Fade out
         Animated.parallel([
-            Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-            Animated.timing(scaleAnim, { toValue: 0.8, duration: 200, useNativeDriver: true }),
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnim, {
+                toValue: 0.8,
+                duration: 200,
+                useNativeDriver: true,
+            }),
         ]).start(() => {
             setVisible(false);
-            resetAnimations();
+            // Reset animations
+            fadeAnim.setValue(0);
+            scaleAnim.setValue(0.8);
+            pulseAnim.stopAnimation();
+            pulseAnim.setValue(1);
+            shakeAnim.setValue(0);
+            setFallData(null);
         });
-    };
-
-    const handleEmergencyCall = () => {
-        Vibration.cancel();
-
-        // TODO: Implement emergency call logic
-        console.log('🚨 TỰ ĐỘNG GỌI CẤP CỨU!');
-        console.log('Fall data:', fallData);
-
-        // Show confirmation
-        // Alert.alert(
-        //   'Đang gọi cấp cứu',
-        //   'Hệ thống đang liên hệ với dịch vụ y tế khẩn cấp...',
-        // );
-
-        // Close modal sau khi gọi
-        setTimeout(() => {
-            handleImOk();
-        }, 2000);
-    };
-
-    const resetAnimations = () => {
-        fadeAnim.setValue(0);
-        scaleAnim.setValue(0.8);
-        pulseAnim.stopAnimation();
-        pulseAnim.setValue(1);
-        countdownAnim.setValue(1);
     };
 
     const getSeverityColor = (severity) => {
         switch (severity) {
-            case 'critical': return '#dc2626';
-            case 'high': return '#ea580c';
-            case 'medium': return '#f59e0b';
-            default: return '#ef4444';
+            case 'critical':
+                return '#dc2626';
+            case 'high':
+                return '#ea580c';
+            case 'medium':
+                return '#f59e0b';
+            default:
+                return '#ef4444';
         }
     };
 
     const getSeverityText = (severity) => {
         switch (severity) {
-            case 'critical': return 'NGUY HIỂM CAO';
-            case 'high': return 'NGHIÊM TRỌNG';
-            case 'medium': return 'CẦN QUAN SÁT';
-            default: return 'TÉ NGÃ';
+            case 'critical':
+                return 'NGUY HIỂM CAO';
+            case 'high':
+                return 'NGHIÊM TRỌNG';
+            case 'medium':
+                return 'CẦN QUAN SÁT';
+            default:
+                return 'TÉ NGÃ';
         }
-    };
-
-    const getCountdownColor = () => {
-        if (countdown <= 10) return '#dc2626';
-        if (countdown <= 20) return '#f59e0b';
-        return '#0ea5e9';
     };
 
     if (!visible || !fallData) return null;
 
     const severityColor = getSeverityColor(fallData.severity);
     const severityText = getSeverityText(fallData.severity);
-    const countdownColor = getCountdownColor();
 
     return (
         <Modal
             visible={visible}
             transparent
             animationType="none"
-            onRequestClose={handleImOk}
+            onRequestClose={handleDismiss}
         >
-            <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+            <Animated.View
+                style={[
+                    styles.overlay,
+                    {
+                        opacity: fadeAnim,
+                    },
+                ]}
+            >
                 <Animated.View
                     style={[
                         styles.container,
-                        { transform: [{ scale: scaleAnim }, { translateX: shakeAnim }] },
+                        {
+                            transform: [
+                                { scale: scaleAnim },
+                                { translateX: shakeAnim },
+                            ],
+                        },
                     ]}
                 >
-                    {/* Countdown Circle */}
-                    <View style={styles.countdownContainer}>
-                        <Animated.View
-                            style={[
-                                styles.countdownCircle,
-                                {
-                                    borderColor: countdownColor,
-                                    transform: [{ scale: countdownAnim }],
-                                },
-                            ]}
-                        >
-                            <Text style={[styles.countdownNumber, { color: countdownColor }]}>
-                                {countdown}
-                            </Text>
-                            <Text style={styles.countdownLabel}>giây</Text>
-                        </Animated.View>
-                        <Text style={styles.countdownText}>
-                            Tự động gọi cấp cứu nếu không phản hồi
-                        </Text>
-                    </View>
-
                     {/* Alert Icon */}
                     <Animated.View
                         style={[
@@ -265,7 +299,12 @@ const FallAlertModalAdvanced = () => {
                     {/* Alert Title */}
                     <View style={styles.titleContainer}>
                         <Text style={styles.title}>CẢNH BÁO TÉ NGÃ</Text>
-                        <View style={[styles.severityBadge, { backgroundColor: severityColor }]}>
+                        <View
+                            style={[
+                                styles.severityBadge,
+                                { backgroundColor: severityColor },
+                            ]}
+                        >
                             <Text style={styles.severityText}>{severityText}</Text>
                         </View>
                     </View>
@@ -273,7 +312,7 @@ const FallAlertModalAdvanced = () => {
                     {/* Alert Message */}
                     <View style={styles.messageContainer}>
                         <Text style={styles.message}>
-                            Hệ thống phát hiện té ngã! Bạn có ổn không?
+                            Hệ thống phát hiện té ngã! Vui lòng kiểm tra ngay.
                         </Text>
                     </View>
 
@@ -281,39 +320,75 @@ const FallAlertModalAdvanced = () => {
                     <View style={styles.detailsContainer}>
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>🕐 Thời gian:</Text>
-                            <Text style={styles.detailValue}>{fallData.time}</Text>
+                            <Text style={styles.detailValue}>
+                                {fallData.time} - {fallData.date}
+                            </Text>
                         </View>
+
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>💓 Nhịp tim:</Text>
-                            <Text style={styles.detailValue}>{fallData.heartRate} BPM</Text>
+                            <Text style={styles.detailValue}>
+                                {fallData.heartRate} BPM
+                            </Text>
                         </View>
+
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>🫁 SpO2:</Text>
-                            <Text style={[styles.detailValue, fallData.spo2 < 95 && { color: '#dc2626' }]}>
+                            <Text
+                                style={[
+                                    styles.detailValue,
+                                    fallData.spo2 < 95 && { color: '#dc2626' },
+                                ]}
+                            >
                                 {fallData.spo2}%
                             </Text>
                         </View>
+
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>📱 Thiết bị:</Text>
+                            <Text style={styles.detailValue}>{fallData.deviceId}</Text>
+                        </View>
+
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>📍 Vị trí:</Text>
+                            <Text style={styles.detailValue}>
+                                {fallData.latitude && fallData.longitude
+                                    ? `${fallData.latitude.toFixed(5)}, ${fallData.longitude.toFixed(5)}`
+                                    : 'Không xác định'}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Warning Note */}
+                    <View style={[styles.warningBox, { borderLeftColor: severityColor }]}>
+                        <Text style={styles.warningText}>
+                            ⚠️ Nếu không có phản hồi, hệ thống sẽ tự động thông báo đến người nhà.
+                        </Text>
                     </View>
 
                     {/* Action Buttons */}
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
                             style={[styles.button, styles.primaryButton]}
-                            onPress={handleImOk}
+                            onPress={handleDismiss}
                             activeOpacity={0.8}
                         >
                             <Text style={styles.primaryButtonText}>
-                                ✓ Tôi ổn, hủy gọi cấp cứu
+                                ✓ Tôi ổn, đã xác nhận
                             </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             style={[styles.button, styles.emergencyButton]}
-                            onPress={handleEmergencyCall}
+                            onPress={() => {
+                                // TODO: Implement emergency call
+                                handleDismiss();
+                                // callEmergency();
+                            }}
                             activeOpacity={0.8}
                         >
                             <Text style={styles.emergencyButtonText}>
-                                🚨 Gọi cấp cứu ngay
+                                🚨 Cần trợ giúp khẩn cấp
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -343,43 +418,14 @@ const styles = StyleSheet.create({
         shadowRadius: 30,
         elevation: 30,
     },
-    countdownContainer: {
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    countdownCircle: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 4,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        marginBottom: 8,
-    },
-    countdownNumber: {
-        fontSize: 40,
-        fontWeight: 'bold',
-    },
-    countdownLabel: {
-        fontSize: 12,
-        color: '#64748b',
-        fontWeight: '600',
-    },
-    countdownText: {
-        fontSize: 12,
-        color: '#64748b',
-        textAlign: 'center',
-        fontWeight: '500',
-    },
     iconContainer: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
         alignSelf: 'center',
-        marginBottom: 16,
+        marginBottom: 20,
         shadowColor: '#dc2626',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.4,
@@ -387,7 +433,7 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     iconText: {
-        fontSize: 36,
+        fontSize: 40,
     },
     titleContainer: {
         alignItems: 'center',
@@ -416,7 +462,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fef2f2',
         borderRadius: 12,
         padding: 16,
-        marginBottom: 16,
+        marginBottom: 20,
         borderWidth: 1,
         borderColor: '#fecaca',
     },
@@ -437,7 +483,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 6,
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e2e8f0',
     },
     detailLabel: {
         fontSize: 14,
@@ -448,6 +496,21 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#1e293b',
         fontWeight: 'bold',
+        textAlign: 'right',
+        flexShrink: 1,
+        marginLeft: 12,
+    },
+    warningBox: {
+        backgroundColor: '#fffbeb',
+        borderLeftWidth: 4,
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 20,
+    },
+    warningText: {
+        fontSize: 13,
+        color: '#92400e',
+        lineHeight: 18,
     },
     buttonContainer: {
         gap: 12,
@@ -486,4 +549,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default FallAlertModalAdvanced;
+export default FallAlertModal;
