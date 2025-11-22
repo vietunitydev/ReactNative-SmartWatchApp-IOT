@@ -92,13 +92,23 @@ const api = {
     },
 };
 
-export const UserService = {
+const UserService = {
     register: (username, password, name) => {
         return api.post('/auth/register', { username, password, name });
     },
 
     login: (username, password) => {
         return api.post('/auth/login', { username, password });
+    }
+};
+
+const DeviceService = {
+    register: (deviceData) => {
+        return api.post('/register-device', deviceData);
+    },
+
+    getDevices: () => {
+        return api.get('/get-devices');
     }
 };
 
@@ -170,6 +180,30 @@ class ApiService {
         return createResponse({ message: 'Đăng xuất thành công' });
     }
 
+
+    async addDevice(deviceData){
+        const response = await DeviceService.register(deviceData);
+
+        if (response) {
+            return createResponse({
+                deviceData
+            });
+        }
+
+        throw new Error('Lỗi thêm device');
+    }
+
+    async getDevices(){
+        const response = await DeviceService.getDevices();
+
+        if (response) {
+            return createResponse({
+                response
+            });
+        }
+
+        throw new Error('Lỗi get devices');
+    }
     // ============ Real-time Data APIs ============
 
     /**

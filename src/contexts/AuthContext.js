@@ -101,9 +101,6 @@ export const AuthProvider = ({ children }) => {
             // Gọi API logout
             await apiService.logout();
 
-            // Hủy FCM token
-            await notificationService.unregisterToken();
-
             // Xóa khỏi AsyncStorage
             await AsyncStorage.removeItem('authToken');
             await AsyncStorage.removeItem('user');

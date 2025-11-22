@@ -6,6 +6,9 @@ import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
 import fakeDataGenerator from "../services/fakedata";
 
+// import
+import apiService from "../services/api.service";
+
 // UUID phải khớp với ESP32
 const SERVICE_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
 const CHARACTERISTIC_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E';
@@ -399,6 +402,8 @@ export const IoTProvider = ({ children }) => {
             });
             setIsBluetoothConnected(true);
             setLoading(false);
+
+            await apiService.addDevice({id: fakeDevice.id, name: fakeDevice.name, macAddress:"B1:B2:B3:B4:B5:B6"})
 
             return true;
         }
