@@ -111,6 +111,16 @@ const DeviceService = {
     }
 };
 
+const RecordService = {
+    save: (recordData) => {
+        return api.post('/save-record', recordData);
+    },
+
+    getRecords: (username) => {
+        return api.get('/get-records?username=' + username);
+    }
+};
+
 
 // Helper function để giả lập network delay
 const simulateDelay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
@@ -196,12 +206,24 @@ class ApiService {
         const response = await DeviceService.getDevices();
 
         if (response) {
-            return createResponse({
-                response
-            });
+            return response
         }
 
         throw new Error('Lỗi get devices');
+    }
+
+    async saveRecord(recordData){
+        const response = await RecordService.save(recordData);
+        if (response) {
+            return recordData
+        }
+    }
+
+    async getRecords(username){
+        const response = await RecordService.getRecords(username);
+        if (response) {
+            return response
+        }
     }
     // ============ Real-time Data APIs ============
 

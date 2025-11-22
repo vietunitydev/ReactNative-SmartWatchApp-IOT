@@ -17,6 +17,7 @@ import DebugScreen from "./src/screens/DebugScreen";
 import RelationsScreen from "./src/screens/RelationsScreen";
 import PatientDetailScreen from "./src/screens/PatientDetailScreen";
 import FallAlertModal from "./src/components/FallAlertModal";
+import SensorSender from "./src/screens/SensorSender";
 
 const Stack = createNativeStackNavigator();
 
@@ -66,6 +67,7 @@ const App = () => {
         <AuthProvider>
             <IoTProvider>
                 <AppNavigator />
+                <SensorSender />
                 <FallAlertModal />
             </IoTProvider>
         </AuthProvider>
