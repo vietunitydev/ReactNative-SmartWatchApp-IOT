@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../services/api.service';
-import notificationService from '../services/notification.service';
 
 const AuthContext = createContext();
 
@@ -37,10 +36,6 @@ export const AuthProvider = ({ children }) => {
                 setUser(JSON.parse(savedUser));
                 apiService.authToken = savedToken;
                 apiService.currentUser = JSON.parse(savedUser);
-
-                // Đăng ký FCM token
-                await notificationService.initialize();
-                await notificationService.registerToken(JSON.parse(savedUser).id);
             }
         } catch (err) {
             console.error('Lỗi kiểm tra trạng thái đăng nhập:', err);
@@ -64,9 +59,6 @@ export const AuthProvider = ({ children }) => {
 
                 await AsyncStorage.setItem('authToken', newToken);
                 await AsyncStorage.setItem('user', JSON.stringify(userData));
-
-                await notificationService.initialize();
-                await notificationService.registerToken(userData.id);
 
                 console.log('Đăng nhập thành công:', userData.username);
 
