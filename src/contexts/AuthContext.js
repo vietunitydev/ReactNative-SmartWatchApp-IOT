@@ -90,9 +90,6 @@ export const AuthProvider = ({ children }) => {
             const response = await apiService.register(userData);
 
             if (response.success) {
-                console.log('✅ Đăng ký thành công');
-
-                // Tự động đăng nhập sau khi đăng ký
                 return await login(userData.username, userData.password);
             }
         } catch (err) {

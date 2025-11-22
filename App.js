@@ -8,6 +8,7 @@ import { IoTProvider } from './src/contexts/IoTContext';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import BluetoothScreen from './src/screens/BluetoothScreen';
 import LocationScreen from './src/screens/LocationScreen';
@@ -39,6 +40,7 @@ const AppNavigator = () => {
                     // Auth Stack
                     <>
                         <Stack.Screen name="Login" component={LoginScreen} />
+                        <Stack.Screen name="Register" component={RegisterScreen} />
                     </>
                 ) : (
                     // Main App Stack

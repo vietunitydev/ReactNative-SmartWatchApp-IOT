@@ -232,7 +232,7 @@ class ApiService {
     async register(userData) {
 
         const response = await UserService.register(userData.username, userData.password, userData.name);
-
+        console.log(response);
         if (!response) {
             throw new Error('Create field');
         }
