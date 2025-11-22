@@ -131,9 +131,32 @@ const FallService = {
     }
 };
 
+const UserRelationshipService = {
 
-// Helper function để giả lập network delay
-const simulateDelay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
+    search: (search) => {
+        return api.get('/search-user?username='+search);
+    },
+
+    getFollowing: () => {
+        return api.get('/get-following');
+    },
+
+    getFollower: () => {
+        return api.get('/get-followers');
+    },
+
+    invite: (username) => {
+        return api.post('/invite', {username: username});
+    },
+
+    accept: (userRelationId) => {
+        return api.post('/accept', {userRelationId: userRelationId});
+    },
+
+    reject: (userRelationId) => {
+        return api.post('/reject', {userRelationId: userRelationId});
+    }
+};
 
 // Helper function để tạo response giống API thực
 const createResponse = (data, success = true) => {
@@ -252,34 +275,49 @@ class ApiService {
             return response
         }
     }
-    // ============ Real-time Data APIs ============
 
-
-
-
-    // ============ Family/Watcher APIs ============
-
-    /**
-     * Lấy danh sách người theo dõi
-     */
-    async getWatchers(userId) {
-        await simulateDelay(200);
-
-        return createResponse({  });
+    async searchUsers(username) {
+        const response = await UserRelationshipService.search(username);
+        if (response) {
+            return response
+        }
     }
 
-    /**
-     * Thêm người theo dõi
-     */
-    async addWatcher(userId, watcherUsername) {
-        await simulateDelay(300);
-
-        return createResponse({
-            message: 'Đã thêm người theo dõi',
-            watcher: {
-            }
-        });
+    async getFollowing(){
+        const response = await UserRelationshipService.getFollowing();
+        if (response) {
+            return response
+        }
     }
+
+    async getFollower(){
+        const response = await UserRelationshipService.getFollower();
+        if (response) {
+            return response
+        }
+    }
+
+    async invite(userName) {
+        const response = await UserRelationshipService.invite(userName);
+        if (response) {
+            return response
+        }
+    }
+
+    async accept(relationshipId) {
+        const response = await UserRelationshipService.accept(relationshipId);
+        if (response) {
+            return response
+        }
+    }
+
+    async reject(relationshipId) {
+        const response = await UserRelationshipService.reject(relationshipId);
+        if (response) {
+            return response
+        }
+    }
+
     // ============ WebSocket / Real-time Simulation ============
 
     /**
