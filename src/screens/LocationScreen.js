@@ -1,5 +1,5 @@
-// LocationScreen.js - Sửa lỗi map và Google Maps
-import React from 'react';
+// LocationScreen.js - Hiển thị dữ liệu ngã gần nhất
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,22 +7,92 @@ import {
   TouchableOpacity,
   Linking,
   Alert,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import apiService from "../services/api.service";
+import { useAuth } from "../contexts/AuthContext";
 
 const LocationScreen = ({ navigation }) => {
-  // Dữ liệu mẫu - sau này có thể lấy từ context
-  const fallLocation = {
-    latitude: 10.762622,
-    longitude: 106.660172,
-    timestamp: '17/11/2025 10:45',
-    severity: 'Trung bình'
+  const { user } = useAuth();
+  const [fallData, setFallData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch dữ liệu ngã khi component mount
+  useEffect(() => {
+    fetchLatestFall();
+  }, []);
+
+  const fetchLatestFall = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await apiService.getFalls(user.username);
+
+      if (response && response.length > 0) {
+        // Lấy dữ liệu ngã gần nhất (phần tử đầu tiên hoặc sort theo detectedAt)
+        const latestFall = response.sort((a, b) =>
+            new Date(b.detectedAt) - new Date(a.detectedAt)
+        )[0];
+
+        setFallData(latestFall);
+      } else {
+        setError('Không có dữ liệu ngã');
+      }
+    } catch (err) {
+      console.error('Lỗi khi lấy dữ liệu ngã:', err);
+      setError('Không thể tải dữ liệu ngã. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format thời gian
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  // Chuyển đổi severity sang tiếng Việt
+  const getSeverityText = (severity) => {
+    const severityMap = {
+      'low': 'Thấp',
+      'medium': 'Trung bình',
+      'high': 'Cao',
+      'critical': 'Nguy hiểm'
+    };
+    return severityMap[severity?.toLowerCase()] || severity || 'Không xác định';
+  };
+
+  // Lấy màu theo mức độ nghiêm trọng
+  const getSeverityColor = (severity) => {
+    const colorMap = {
+      'low': '#22c55e',
+      'medium': '#f59e0b',
+      'high': '#ef4444',
+      'critical': '#dc2626'
+    };
+    return colorMap[severity?.toLowerCase()] || '#64748b';
   };
 
   const openGoogleMaps = async () => {
-    const { latitude, longitude } = fallLocation;
+    if (!fallData) {
+      Alert.alert('Lỗi', 'Không có dữ liệu vị trí');
+      return;
+    }
+
+    const { latitude, longitude } = fallData;
 
     // URL khác nhau cho iOS và Android
     const scheme = Platform.select({
@@ -54,6 +124,48 @@ const LocationScreen = ({ navigation }) => {
     }
   };
 
+  // Hiển thị loading
+  if (loading) {
+    return (
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Icon name="arrow-back" size={28} color="#0c4a6e" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Vị trí té ngã</Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#0ea5e9" />
+            <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+          </View>
+        </SafeAreaView>
+    );
+  }
+
+  // Hiển thị lỗi
+  if (error || !fallData) {
+    return (
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Icon name="arrow-back" size={28} color="#0c4a6e" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Vị trí té ngã</Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <View style={styles.centerContainer}>
+            <Icon name="alert-circle-outline" size={80} color="#94a3b8" />
+            <Text style={styles.errorText}>{error || 'Không có dữ liệu'}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={fetchLatestFall}>
+              <Icon name="refresh" size={20} color="#fff" />
+              <Text style={styles.retryBtnText}>Thử lại</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+    );
+  }
+
   return (
       <SafeAreaView style={styles.container}>
         {/* Header với nút back */}
@@ -62,10 +174,12 @@ const LocationScreen = ({ navigation }) => {
             <Icon name="arrow-back" size={28} color="#0c4a6e" />
           </TouchableOpacity>
           <Text style={styles.title}>Vị trí té ngã</Text>
-          <View style={{ width: 28 }} />
+          <TouchableOpacity onPress={fetchLatestFall}>
+            <Icon name="refresh" size={24} color="#0c4a6e" />
+          </TouchableOpacity>
         </View>
 
-        {/* Map visualization - Dùng View thay vì Image */}
+        {/* Map visualization */}
         <View style={styles.mapPlaceholder}>
           {/* Background gradient */}
           <View style={styles.mapBackground}>
@@ -94,7 +208,7 @@ const LocationScreen = ({ navigation }) => {
           <View style={styles.coordLabel}>
             <Icon name="navigate" size={14} color="#0ea5e9" />
             <Text style={styles.coordText}>
-              {fallLocation.latitude.toFixed(4)}°, {fallLocation.longitude.toFixed(4)}°
+              {fallData.latitude.toFixed(4)}°, {fallData.longitude.toFixed(4)}°
             </Text>
           </View>
         </View>
@@ -103,8 +217,8 @@ const LocationScreen = ({ navigation }) => {
         <View style={styles.info}>
           <View style={styles.infoHeader}>
             <Text style={styles.infoTitle}>Thông tin té ngã gần nhất</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>MỚI</Text>
+            <View style={[styles.badge, { backgroundColor: getSeverityColor(fallData.severity) }]}>
+              <Text style={styles.badgeText}>{getSeverityText(fallData.severity).toUpperCase()}</Text>
             </View>
           </View>
 
@@ -114,31 +228,63 @@ const LocationScreen = ({ navigation }) => {
             </View>
             <View style={styles.textContainer}>
               <Text style={styles.label}>Thời gian</Text>
-              <Text style={styles.value}>{fallLocation.timestamp}</Text>
+              <Text style={styles.value}>{formatDateTime(fallData.detectedAt)}</Text>
             </View>
           </View>
 
           <View style={styles.row}>
             <View style={styles.iconContainer}>
-              <Icon name="alert-circle" size={22} color="#f59e0b" />
+              <Icon name="alert-circle" size={22} color={getSeverityColor(fallData.severity)} />
             </View>
             <View style={styles.textContainer}>
               <Text style={styles.label}>Mức độ</Text>
-              <Text style={styles.value}>{fallLocation.severity}</Text>
+              <Text style={[styles.value, { color: getSeverityColor(fallData.severity) }]}>
+                {getSeverityText(fallData.severity)}
+              </Text>
             </View>
           </View>
 
           <View style={styles.row}>
             <View style={styles.iconContainer}>
-              <Icon name="location" size={22} color="#22c55e" />
+              <Icon name="fitness" size={22} color="#ef4444" />
             </View>
             <View style={styles.textContainer}>
-              <Text style={styles.label}>Tọa độ GPS</Text>
-              <Text style={styles.value}>
-                {fallLocation.latitude.toFixed(6)}, {fallLocation.longitude.toFixed(6)}
-              </Text>
+              <Text style={styles.label}>Nhịp tim</Text>
+              <Text style={styles.value}>{fallData.heartRate} BPM</Text>
             </View>
           </View>
+
+        {/*  <View style={styles.row}>*/}
+        {/*    <View style={styles.iconContainer}>*/}
+        {/*      <Icon name="water" size={22} color="#06b6d4" />*/}
+        {/*    </View>*/}
+        {/*    <View style={styles.textContainer}>*/}
+        {/*      <Text style={styles.label}>SpO₂</Text>*/}
+        {/*      <Text style={styles.value}>{fallData.spo2}%</Text>*/}
+        {/*    </View>*/}
+        {/*  </View>*/}
+
+        {/*  <View style={styles.row}>*/}
+        {/*    <View style={styles.iconContainer}>*/}
+        {/*      <Icon name="location" size={22} color="#22c55e" />*/}
+        {/*    </View>*/}
+        {/*    <View style={styles.textContainer}>*/}
+        {/*      <Text style={styles.label}>Tọa độ GPS</Text>*/}
+        {/*      <Text style={styles.value}>*/}
+        {/*        {fallData.latitude.toFixed(6)}, {fallData.longitude.toFixed(6)}*/}
+        {/*      </Text>*/}
+        {/*    </View>*/}
+        {/*  </View>*/}
+
+        {/*  <View style={styles.row}>*/}
+        {/*    <View style={styles.iconContainer}>*/}
+        {/*      <Icon name="hardware-chip" size={22} color="#8b5cf6" />*/}
+        {/*    </View>*/}
+        {/*    <View style={styles.textContainer}>*/}
+        {/*      <Text style={styles.label}>Thiết bị</Text>*/}
+        {/*      <Text style={styles.value}>{fallData.deviceId}</Text>*/}
+        {/*    </View>*/}
+        {/*  </View>*/}
         </View>
 
         {/* Nút mở Google Maps */}
@@ -158,6 +304,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ecfeff'
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '600'
+  },
+  errorText: {
+    marginTop: 16,
+    marginBottom: 24,
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '600',
+    textAlign: 'center'
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0ea5e9',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12
+  },
+  retryBtnText: {
+    marginLeft: 8,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700'
   },
   header: {
     flexDirection: 'row',
@@ -339,23 +519,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 17,
     fontWeight: '700'
-  },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e0f2fe',
-    padding: 14,
-    marginHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#0ea5e9'
-  },
-  noteText: {
-    marginLeft: 10,
-    fontSize: 13,
-    color: '#0c4a6e',
-    flex: 1,
-    lineHeight: 18
   }
 });
 

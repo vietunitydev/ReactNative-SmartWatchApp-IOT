@@ -245,6 +245,13 @@ class ApiService {
             return response
         }
     }
+
+    async getFalls(username){
+        const response = await FallService.getFalls(username);
+        if (response) {
+            return response
+        }
+    }
     // ============ Real-time Data APIs ============
 
 
