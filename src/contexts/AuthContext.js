@@ -59,19 +59,16 @@ export const AuthProvider = ({ children }) => {
             if (response.success) {
                 const { token: newToken, user: userData } = response.data;
 
-                // Lưu vào state
                 setToken(newToken);
                 setUser(userData);
 
-                // Lưu vào AsyncStorage
                 await AsyncStorage.setItem('authToken', newToken);
                 await AsyncStorage.setItem('user', JSON.stringify(userData));
 
-                // Đăng ký FCM
                 await notificationService.initialize();
                 await notificationService.registerToken(userData.id);
 
-                console.log('✅ Đăng nhập thành công:', userData.username);
+                console.log('Đăng nhập thành công:', userData.username);
 
                 return { success: true, user: userData };
             }

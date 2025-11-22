@@ -1,6 +1,106 @@
-// API Service - Giả lập tất cả API với mock data
+import axios from 'axios';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = 'http://localhost:3000/api'; // Thay đổi theo server của bạn
+// Cấu hình base URL
+const BASE_URL = 'http://10.0.2.2:8080/api';
+// const BASE_URL = 'http://localhost:8080/api';
+
+// Tạo axios instance
+const apiClient = axios.create({
+    baseURL: BASE_URL,
+    timeout: 10000,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
+// Request interceptor - Thêm token vào mỗi request
+apiClient.interceptors.request.use(
+    async (config) => {
+        // Lấy token từ AsyncStorage (nếu có)
+        const token = await AsyncStorage.getItem('authToken');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Response interceptor - Xử lý response và errors
+apiClient.interceptors.response.use(
+    (response) => {
+        return response.data;
+    },
+    (error) => {
+        if (error.response) {
+            // Server trả về error response
+            console.error('API Error:', error.response.data);
+
+            // Xử lý các trường hợp đặc biệt
+            if (error.response.status === 401) {
+                // Token hết hạn, logout user
+                // handleLogout();
+            }
+        } else if (error.request) {
+            // Request được gửi nhưng không nhận được response
+            console.error('Network Error:', error.request);
+        } else {
+            console.error('Error:', error.message);
+        }
+
+        return Promise.reject(error);
+    }
+);
+
+const api = {
+    // GET request
+    get: (url, params = {}) => {
+        return apiClient.get(url, { params });
+    },
+
+    // POST request
+    post: (url, data) => {
+        return apiClient.post(url, data);
+    },
+
+    // PUT request
+    put: (url, data) => {
+        return apiClient.put(url, data);
+    },
+
+    // PATCH request
+    patch: (url, data) => {
+        return apiClient.patch(url, data);
+    },
+
+    // DELETE request
+    delete: (url) => {
+        return apiClient.delete(url);
+    },
+
+    // Upload file với FormData
+    upload: (url, formData) => {
+        return apiClient.post(url, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    },
+};
+
+export const UserService = {
+    register: (username, password, name) => {
+        return api.post('/auth/register', { username, password, name });
+    },
+
+    login: (username, password) => {
+        return api.post('/auth/login', { username, password });
+    }
+};
+
 
 // Mock Data
 const MOCK_USERS = {
@@ -108,33 +208,20 @@ class ApiService {
         this.currentUser = null;
     }
 
-    // ============ Authentication APIs ============
-
-    /**
-     * Đăng nhập
-     */
     async login(username, password) {
-        await simulateDelay();
-
-        const user = Object.values(MOCK_USERS).find(
-            u => u.username === username && u.password === password
-        );
-
-        if (user) {
-            const token = `mock_token_${user.id}_${Date.now()}`;
+        const response = await UserService.login(username, password);
+        if (response) {
+            const token = response.token;
             this.authToken = token;
-            this.currentUser = user;
+            this.currentUser = response.user;
 
-            // Lưu token vào storage (sẽ implement ở AuthContext)
             return createResponse({
                 token,
                 user: {
-                    id: user.id,
-                    username: user.username,
-                    name: user.name,
-                    role: user.role,
-                    deviceId: user.deviceId,
-                    watchers: user.watchers
+                    id: response.user.id,
+                    username: response.user.username,
+                    name: response.user.name,
+                    role: response.user.role,
                 }
             });
         }
@@ -142,56 +229,32 @@ class ApiService {
         throw new Error('Tên đăng nhập hoặc mật khẩu không đúng');
     }
 
-    /**
-     * Đăng ký
-     */
     async register(userData) {
-        await simulateDelay();
 
-        // Kiểm tra username đã tồn tại
-        const exists = Object.values(MOCK_USERS).find(
-            u => u.username === userData.username
-        );
+        const response = await UserService.register(userData.username, userData.password, userData.name);
 
-        if (exists) {
-            throw new Error('Tên đăng nhập đã tồn tại');
+        if (!response) {
+            throw new Error('Create field');
         }
 
         const newUser = {
-            id: `user_${Date.now()}`,
-            username: userData.username,
-            password: userData.password,
-            name: userData.name,
-            role: userData.role || 'watcher',
+            id: response.id,
+            username: response.username,
+            name: response.username,
+            role: response.role || 'watcher',
             watchingUser: userData.watchingUser
         };
 
-        MOCK_USERS[newUser.id] = newUser;
 
         return createResponse({
             user: newUser
         });
     }
 
-    /**
-     * Đăng xuất
-     */
     async logout() {
-        await simulateDelay(200);
         this.authToken = null;
         this.currentUser = null;
         return createResponse({ message: 'Đăng xuất thành công' });
-    }
-
-    /**
-     * Lấy thông tin user hiện tại
-     */
-    async getCurrentUser() {
-        await simulateDelay(200);
-        if (!this.currentUser) {
-            throw new Error('Chưa đăng nhập');
-        }
-        return createResponse({ user: this.currentUser });
     }
 
     // ============ Bluetooth / IoT Device APIs ============
