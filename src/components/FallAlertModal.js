@@ -279,21 +279,21 @@ const FallAlertModal = () => {
                     {/* Fall Details */}
                     <View style={styles.detailsContainer}>
                         <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>🕐 Thời gian:</Text>
+                            <Text style={styles.detailLabel}>Thời gian:</Text>
                             <Text style={styles.detailValue}>
                                 {fallData.time} - {fallData.date}
                             </Text>
                         </View>
 
                         <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>💓 Nhịp tim:</Text>
+                            <Text style={styles.detailLabel}>Nhịp tim:</Text>
                             <Text style={styles.detailValue}>
                                 {fallData.heartRate} BPM
                             </Text>
                         </View>
 
                         <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>🫁 SpO2:</Text>
+                            <Text style={styles.detailLabel}>SpO2:</Text>
                             <Text
                                 style={[
                                     styles.detailValue,
@@ -305,7 +305,7 @@ const FallAlertModal = () => {
                         </View>
 
                         <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>📱 Thiết bị:</Text>
+                            <Text style={styles.detailLabel}>Thiết bị:</Text>
                             <Text style={styles.detailValue}>{fallData.deviceId}</Text>
                         </View>
                     </View>
@@ -313,7 +313,7 @@ const FallAlertModal = () => {
                     {/* Warning Note */}
                     <View style={[styles.warningBox, { borderLeftColor: severityColor }]}>
                         <Text style={styles.warningText}>
-                            ⚠️ Nếu không có phản hồi, hệ thống sẽ tự động thông báo đến người nhà.
+                            Nếu không có phản hồi, hệ thống sẽ tự động thông báo đến người nhà.
                         </Text>
                     </View>
 
@@ -325,21 +325,21 @@ const FallAlertModal = () => {
                             activeOpacity={0.8}
                         >
                             <Text style={styles.primaryButtonText}>
-                                ✓ Tôi ổn, đã xác nhận
+                                Tôi ổn, đã xác nhận
                             </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             style={[styles.button, styles.emergencyButton]}
                             onPress={() => {
-                                // TODO: Implement emergency call
                                 handleDismiss();
+                                // TODO: Implement emergency call
                                 // callEmergency();
                             }}
                             activeOpacity={0.8}
                         >
                             <Text style={styles.emergencyButtonText}>
-                                🚨 Cần trợ giúp khẩn cấp
+                                Cần trợ giúp khẩn cấp
                             </Text>
                         </TouchableOpacity>
                     </View>
