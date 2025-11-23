@@ -56,6 +56,8 @@ const Toast = ({ visible, message, type = 'success' }) => {
 const RelationsScreen = ({ navigation }) => {
   const { user } = useAuth();
 
+  console.log(user);
+
   const [activeTab, setActiveTab] = useState('add');
   const [searchText, setSearchText] = useState('');
 
@@ -120,6 +122,15 @@ const RelationsScreen = ({ navigation }) => {
     return { type: 'none', relation: null };
   };
 
+  const goToPatientDetail = (item) => {
+
+    console.log(item);
+    navigation.navigate('PatientDetail', {
+      username: item.patient.username,
+      name: item.patient.name || item.patient.username,
+    });
+  };
+
   // === SEARCH TAB ===
   const handleSearch = async () => {
     if (searchLoading) return;
@@ -132,7 +143,7 @@ const RelationsScreen = ({ navigation }) => {
 
       // Gọi API search
       try {
-        response = await apiService.searchUsersGet(keyword, 0, 100);
+        response = await apiService.searchUsers(keyword);
       } catch (error) {
         console.log('Search API not available, using fallback');
         // Fallback: combine following + follower
@@ -256,14 +267,6 @@ const RelationsScreen = ({ navigation }) => {
       setFollowingLoading(false);
     }
   };
-
-  const goToPatientDetail = (item) => {
-    navigation.navigate('PatientDetail', {
-      patient: item.patient,
-      relation: item
-    });
-  };
-
   // Refresh handler
   const onRefresh = async () => {
     setRefreshing(true);
