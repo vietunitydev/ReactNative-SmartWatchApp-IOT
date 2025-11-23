@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../services/api.service';
-import notificationService from '../services/notification.service';
 
 const AuthContext = createContext();
 
@@ -37,10 +36,6 @@ export const AuthProvider = ({ children }) => {
                 setUser(JSON.parse(savedUser));
                 apiService.authToken = savedToken;
                 apiService.currentUser = JSON.parse(savedUser);
-
-                // Đăng ký FCM token
-                await notificationService.initialize();
-                await notificationService.registerToken(JSON.parse(savedUser).id);
             }
         } catch (err) {
             console.error('Lỗi kiểm tra trạng thái đăng nhập:', err);
@@ -59,19 +54,13 @@ export const AuthProvider = ({ children }) => {
             if (response.success) {
                 const { token: newToken, user: userData } = response.data;
 
-                // Lưu vào state
                 setToken(newToken);
                 setUser(userData);
 
-                // Lưu vào AsyncStorage
                 await AsyncStorage.setItem('authToken', newToken);
                 await AsyncStorage.setItem('user', JSON.stringify(userData));
 
-                // Đăng ký FCM
-                await notificationService.initialize();
-                await notificationService.registerToken(userData.id);
-
-                console.log('✅ Đăng nhập thành công:', userData.username);
+                console.log('Đăng nhập thành công:', userData.username);
 
                 return { success: true, user: userData };
             }
@@ -93,9 +82,6 @@ export const AuthProvider = ({ children }) => {
             const response = await apiService.register(userData);
 
             if (response.success) {
-                console.log('✅ Đăng ký thành công');
-
-                // Tự động đăng nhập sau khi đăng ký
                 return await login(userData.username, userData.password);
             }
         } catch (err) {
@@ -114,9 +100,6 @@ export const AuthProvider = ({ children }) => {
 
             // Gọi API logout
             await apiService.logout();
-
-            // Hủy FCM token
-            await notificationService.unregisterToken();
 
             // Xóa khỏi AsyncStorage
             await AsyncStorage.removeItem('authToken');

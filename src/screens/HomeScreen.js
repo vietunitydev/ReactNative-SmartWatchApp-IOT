@@ -38,6 +38,8 @@ const HomeScreen = ({ navigation }) => {
 
     const onRefresh = async () => {
         if (isBluetoothConnected) {
+            console.log(sensorData);
+
             await readSensorData();
         }
     };
@@ -184,12 +186,12 @@ const HomeScreen = ({ navigation }) => {
                                 <View style={styles.infoRow}>
                                     <Icon
                                         name={sensorData.isCharging ? "battery-charging" :
-                                            sensorData.batteryLevel > 20 ? "battery-half" : "battery-dead"}
+                                            sensorData.battery > 20 ? "battery-half" : "battery-dead"}
                                         size={22}
-                                        color={sensorData.batteryLevel > 20 ? '#22c55e' : '#ef4444'}
+                                        color={sensorData.battery > 20 ? '#22c55e' : '#ef4444'}
                                     />
                                     <Text style={styles.infoText}>
-                                        {sensorData.batteryLevel ?? '--'}%
+                                        {sensorData.battery ?? '--'}%
                                         {sensorData.isCharging && ' (đang sạc)'}
                                     </Text>
                                 </View>
@@ -269,6 +271,8 @@ const HomeScreen = ({ navigation }) => {
                         { icon: 'time-outline', label: 'Lịch sử', screen: 'History' },
                         { icon: 'location-outline', label: 'Vị trí', screen: 'Location' },
                         { icon: 'people-outline', label: 'Người thân', screen: 'Relations' },
+                        { icon: 'bluetooth', label: 'Debug', screen: 'Debug' },
+                        { icon: 'bluetooth', label: 'SensorDashboard', screen: 'SensorDashboard' },
                     ].map((item, i) => (
                         <TouchableOpacity
                             key={i}

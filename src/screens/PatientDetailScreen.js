@@ -1,5 +1,5 @@
 // screens/PatientDetailScreen.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,26 +7,19 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import apiService from '../services/api.service';
+
+const POLL_INTERVAL = 5000; // 5s
 
 const PatientDetailScreen = ({ route, navigation }) => {
-  // Nhận dữ liệu từ navigation hoặc dùng mẫu
-  const patient = route.params?.patient || {
-    name: 'Nguyễn Văn Minh',
-    spo2: 94,
-    heartRate: 108,
-    heartRateValid: true,
-    fallDetected: true,
-    severity: 'moderate',
-    batteryLevel: 32,
-    isCharging: false,
-    signalQuality: 'good',
-    timestamp: '2 phút trước',
-    deviceId: 'ESP32-001',
-    step: 127,
-  };
+  const { username, name } = route.params;
+
+  const [latestRecord, setLatestRecord] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const getSpo2Color = (value) => {
     if (value >= 95) return '#22c55e';
@@ -40,133 +33,229 @@ const PatientDetailScreen = ({ route, navigation }) => {
     return '#ef4444';
   };
 
+  const formatTimestamp = (isoString) => {
+    if (!isoString) return '—';
+    const date = new Date(isoString);
+    return date.toLocaleString();
+  };
+
+  // Hàm fetch record mới nhất
+  const fetchLatestRecord = async () => {
+    try {
+      const res = await apiService.getRecords(username);
+
+      if (Array.isArray(res) && res.length > 0) {
+        // Tùy backend: nếu record mới nhất ở đầu / cuối thì chỉnh ở đây
+        const latest = res[0]; // hoặc res[res.length - 1]
+        console.log(latest)
+        setLatestRecord(latest);
+      } else {
+        setLatestRecord(null);
+      }
+    } catch (e) {
+      console.log('Error fetching records', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Polling mỗi 5s
+  useEffect(() => {
+    let isMounted = true;
+
+    const wrappedFetch = async () => {
+      if (!isMounted) return;
+      await fetchLatestRecord();
+    };
+
+    wrappedFetch(); // gọi lần đầu khi vào screen
+
+    const intervalId = setInterval(wrappedFetch, POLL_INTERVAL);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [username]);
+
+  // Map record -> object dùng cho UI
+  const patient = {
+    name: name || username,
+    spo2: latestRecord?.spo2 ?? 0,
+    heartRate: latestRecord?.heartRate ?? 0,
+    heartRateValid: latestRecord?.heartRateValid ?? true,
+    fallDetected: latestRecord?.fallDetected ?? false,
+    severity: latestRecord?.severity || 'moderate',
+    battery: latestRecord?.battery ?? 0,
+    isCharging: latestRecord?.isCharging ?? false,
+    signalQuality: latestRecord?.signalQuality || 'good',
+    timestamp: latestRecord ? formatTimestamp(latestRecord.recordedAt) : 'Đang tải...',
+    deviceId: latestRecord?.deviceId || 'N/A',
+    step: latestRecord?.step ?? 0,
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="arrow-back" size={28} color="#0c4a6e" />
-          </TouchableOpacity>
-          <Text style={styles.title}>{patient.name}</Text>
-          <TouchableOpacity onPress={() => Alert.alert('Gọi khẩn cấp', `Đang gọi cho ${patient.name}...`)}>
-            <Icon name="call-outline" size={26} color="#ef4444" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Main Card */}
-        <View style={styles.mainCard}>
-          {/* Device Header */}
-          <View style={styles.deviceHeader}>
-            <Icon name="bluetooth" size={22} color="#fff" />
-            <Text style={styles.deviceId}>{patient.deviceId}</Text>
-            <Icon name="checkmark-circle" size={18} color="#22c55e" style={{ marginLeft: 8 }} />
-            <Text style={styles.onlineText}>Đang kết nối</Text>
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Icon name="arrow-back" size={28} color="#0c4a6e" />
+            </TouchableOpacity>
+            <Text style={styles.title}>{patient.name}</Text>
+            <TouchableOpacity onPress={() => Alert.alert('Gọi khẩn cấp', `Đang gọi cho ${patient.name}...`)}>
+              <Icon name="call-outline" size={26} color="#ef4444" />
+            </TouchableOpacity>
           </View>
 
-          {/* Vital Signs */}
-          <View style={styles.vitalGrid}>
-            {/* SpO2 */}
-            <View style={styles.vitalItem}>
-              <View style={[styles.vitalIcon, { backgroundColor: getSpo2Color(patient.spo2) + '20' }]}>
-                <Icon name="water" size={30} color={getSpo2Color(patient.spo2)} />
+          {/* Nếu đang load lần đầu thì show loading */}
+          {loading && !latestRecord && (
+              <View style={{ paddingTop: 80, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#0ea5e9" />
+                <Text style={{ marginTop: 12, color: '#64748b' }}>
+                  Đang tải dữ liệu mới nhất...
+                </Text>
               </View>
-              <Text style={styles.vitalValue}>
-                {patient.spo2}
-                <Text style={styles.unit}>%</Text>
-              </Text>
-              <Text style={styles.vitalLabel}>SpO2</Text>
-            </View>
+          )}
 
-            {/* Heart Rate */}
-            <View style={styles.vitalItem}>
-              <View style={[styles.vitalIcon, { backgroundColor: getHeartRateColor(patient.heartRate, patient.heartRateValid) + '20' }]}>
-                <Icon name="heart" size={30} color={getHeartRateColor(patient.heartRate, patient.heartRateValid)} />
+          {/* Main Card – vẫn dùng UI cũ nhưng lấy dữ liệu từ patient (map từ latestRecord) */}
+          {!loading && !latestRecord && (
+              <View style={{ paddingHorizontal: 20, paddingTop: 40 }}>
+                <Text style={{ textAlign: 'center', color: '#64748b' }}>
+                  Chưa có bản ghi nào cho người dùng này.
+                </Text>
               </View>
-              <Text style={styles.vitalValue}>
-                {patient.heartRate}
-                <Text style={styles.unit}> bpm</Text>
-              </Text>
-              <Text style={styles.vitalLabel}>Nhịp tim</Text>
-              {patient.heartRate > 100 && (
-                <Text style={styles.warningText}>Cao</Text>
-              )}
-            </View>
+          )}
 
-            {/* Steps */}
-            <View style={styles.vitalItem}>
-              <View style={[styles.vitalIcon, { backgroundColor: '#8b5cf620' }]}>
-                <Icon name="walk" size={30} color="#8b5cf6" />
+          {latestRecord && (
+              <View style={styles.mainCard}>
+                {/* Device Header */}
+                <View style={styles.deviceHeader}>
+                  <Icon name="bluetooth" size={22} color="#fff" />
+                  <Text style={styles.deviceId}>{patient.deviceId}</Text>
+                  <Icon name="checkmark-circle" size={18} color="#22c55e" style={{ marginLeft: 8 }} />
+                  <Text style={styles.onlineText}>Đang kết nối</Text>
+                </View>
+
+                {/* Vital Signs */}
+                <View style={styles.vitalGrid}>
+                  {/* SpO2 */}
+                  <View style={styles.vitalItem}>
+                    <View style={[styles.vitalIcon, { backgroundColor: getSpo2Color(patient.spo2) + '20' }]}>
+                      <Icon name="water" size={30} color={getSpo2Color(patient.spo2)} />
+                    </View>
+                    <Text style={styles.vitalValue}>
+                      {patient.spo2}
+                      <Text style={styles.unit}>%</Text>
+                    </Text>
+                    <Text style={styles.vitalLabel}>SpO2</Text>
+                  </View>
+
+                  {/* Heart Rate */}
+                  <View style={styles.vitalItem}>
+                    <View
+                        style={[
+                          styles.vitalIcon,
+                          { backgroundColor: getHeartRateColor(patient.heartRate, patient.heartRateValid) + '20' },
+                        ]}
+                    >
+                      <Icon
+                          name="heart"
+                          size={30}
+                          color={getHeartRateColor(patient.heartRate, patient.heartRateValid)}
+                      />
+                    </View>
+                    <Text style={styles.vitalValue}>
+                      {patient.heartRate}
+                      <Text style={styles.unit}> bpm</Text>
+                    </Text>
+                    <Text style={styles.vitalLabel}>Nhịp tim</Text>
+                    {patient.heartRate > 100 && (
+                        <Text style={styles.warningText}>Cao</Text>
+                    )}
+                  </View>
+
+                  {/* Steps */}
+                  <View style={styles.vitalItem}>
+                    <View style={[styles.vitalIcon, { backgroundColor: '#8b5cf620' }]}>
+                      <Icon name="walk" size={30} color="#8b5cf6" />
+                    </View>
+                    <Text style={styles.vitalValue}>{patient.step}</Text>
+                    <Text style={styles.vitalLabel}>Bước chân</Text>
+                  </View>
+                </View>
+
+                {/* Fall Alert */}
+                <View style={[styles.fallAlert, patient.fallDetected && styles.fallActive]}>
+                  <Icon
+                      name={patient.fallDetected ? 'warning' : 'shield-checkmark'}
+                      size={26}
+                      color={patient.fallDetected ? '#fff' : '#22c55e'}
+                  />
+                  <Text style={[styles.fallText, patient.fallDetected && styles.fallTextActive]}>
+                    {patient.fallDetected
+                        ? `ĐÃ TÉ NGÃ – ${patient.severity?.toUpperCase() || 'NGHIÊM TRỌNG'}!`
+                        : 'Hiện tại an toàn'}
+                  </Text>
+                </View>
+
+                {/* Extra Info */}
+                <View style={styles.extraInfo}>
+                  <View style={styles.infoRow}>
+                    <Icon
+                        name={
+                          patient.isCharging
+                              ? 'battery-charging'
+                              : patient.battery > 20
+                                  ? 'battery-half'
+                                  : 'battery-dead'
+                        }
+                        size={24}
+                        color={patient.battery > 20 ? '#22c55e' : '#ef4444'}
+                    />
+                    <Text style={styles.infoText}>
+                      {patient.battery}% {patient.isCharging && '(đang sạc)'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Icon
+                        name={patient.signalQuality === 'excellent' ? 'wifi' : 'wifi-outline'}
+                        size={24}
+                        color={patient.signalQuality === 'excellent' ? '#22c55e' : '#f59e0b'}
+                    />
+                    <Text style={styles.infoText}>
+                      Tín hiệu {patient.signalQuality === 'excellent' ? 'rất tốt' : 'tốt'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Timestamp */}
+                <View style={styles.timestamp}>
+                  <Icon name="time-outline" size={16} color="#64748b" />
+                  <Text style={styles.timestampText}>Cập nhật: {patient.timestamp}</Text>
+                </View>
               </View>
-              <Text style={styles.vitalValue}>{patient.step}</Text>
-              <Text style={styles.vitalLabel}>Bước chân</Text>
-            </View>
-          </View>
-
-          {/* Fall Alert */}
-          <View style={[styles.fallAlert, patient.fallDetected && styles.fallActive]}>
-            <Icon
-              name={patient.fallDetected ? "warning" : "shield-checkmark"}
-              size={26}
-              color={patient.fallDetected ? "#fff" : "#22c55e"}
-            />
-            <Text style={[styles.fallText, patient.fallDetected && styles.fallTextActive]}>
-              {patient.fallDetected
-                ? `ĐÃ TÉ NGÃ – ${patient.severity?.toUpperCase() || 'NGHIÊM TRỌNG'}!`
-                : 'Hiện tại an toàn'}
-            </Text>
-          </View>
-
-          {/* Extra Info */}
-          <View style={styles.extraInfo}>
-            <View style={styles.infoRow}>
-              <Icon
-                name={patient.isCharging ? "battery-charging" : patient.batteryLevel > 20 ? "battery-half" : "battery-dead"}
-                size={24}
-                color={patient.batteryLevel > 20 ? '#22c55e' : '#ef4444'}
-              />
-              <Text style={styles.infoText}>
-                {patient.batteryLevel}% {patient.isCharging && '(đang sạc)'}
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Icon
-                name={patient.signalQuality === 'excellent' ? "wifi" : "wifi-outline"}
-                size={24}
-                color={patient.signalQuality === 'excellent' ? '#22c55e' : '#f59e0b'}
-              />
-              <Text style={styles.infoText}>
-                Tín hiệu {patient.signalQuality === 'excellent' ? 'rất tốt' : 'tốt'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Timestamp */}
-          <View style={styles.timestamp}>
-            <Icon name="time-outline" size={16} color="#64748b" />
-            <Text style={styles.timestampText}>Cập nhật: {patient.timestamp}</Text>
-          </View>
-        </View>
+          )}
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate('Location', { patient })}
-          >
-            <Icon name="location" size={26} color="#0ea5e9" />
-            <Text style={styles.actionText}>Xem vị trí</Text>
-          </TouchableOpacity>
+        {/*<View style={styles.actionButtons}>*/}
+        {/*  <TouchableOpacity*/}
+        {/*    style={styles.actionBtn}*/}
+        {/*    onPress={() => navigation.navigate('Location', { patient })}*/}
+        {/*  >*/}
+        {/*    <Icon name="location" size={26} color="#0ea5e9" />*/}
+        {/*    <Text style={styles.actionText}>Xem vị trí</Text>*/}
+        {/*  </TouchableOpacity>*/}
 
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate('History', { patient })}
-          >
-            <Icon name="time-outline" size={26} color="#0ea5e9" />
-            <Text style={styles.actionText}>Lịch sử</Text>
-          </TouchableOpacity>
-        </View>
+        {/*  <TouchableOpacity*/}
+        {/*    style={styles.actionBtn}*/}
+        {/*    onPress={() => navigation.navigate('History', { patient })}*/}
+        {/*  >*/}
+        {/*    <Icon name="time-outline" size={26} color="#0ea5e9" />*/}
+        {/*    <Text style={styles.actionText}>Lịch sử</Text>*/}
+        {/*  </TouchableOpacity>*/}
+        {/*</View>*/}
       </ScrollView>
     </SafeAreaView>
   );

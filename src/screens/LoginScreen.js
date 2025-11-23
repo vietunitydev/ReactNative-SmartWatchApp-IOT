@@ -135,8 +135,7 @@ const LoginScreen = ({ navigation }) => {
           <View style={styles.inner}>
 
             <Animated.View style={{ opacity: fade, transform: [{ translateY: slide }] }}>
-              <Text style={styles.title}>IoT Fall Detection</Text>
-              <Text style={styles.subtitle}>Hệ thống phát hiện té ngã thông minh</Text>
+              <Text style={styles.title}>Đăng nhập</Text>
             </Animated.View>
 
             <Animated.View style={[styles.card, { opacity: fade, transform: [{ scale }] }]}>
@@ -161,14 +160,14 @@ const LoginScreen = ({ navigation }) => {
               </TouchableOpacity>
             </Animated.View>
 
-            <Animated.View style={[styles.demoCard, { opacity: fade, transform: [{ translateY: slide }] }]}>
-              <Text style={styles.demoTitle}>Tài khoản thử nghiệm</Text>
-              <View style={styles.demoBox}>
-                <Text style={styles.demoItem}>• Người đeo A:  nguoideoA / 123456</Text>
-                <Text style={styles.demoItem}>• Người nhà B:  nguoinhaB / 123456</Text>
-                <Text style={styles.demoItem}>• Người nhà C:  nguoinhaC / 123456</Text>
-              </View>
-            </Animated.View>
+            {/*<Animated.View style={[styles.demoCard, { opacity: fade, transform: [{ translateY: slide }] }]}>*/}
+            {/*  <Text style={styles.demoTitle}>Tài khoản thử nghiệm</Text>*/}
+            {/*  <View style={styles.demoBox}>*/}
+            {/*    <Text style={styles.demoItem}>• Người đeo A:  nguoideoA / 123456</Text>*/}
+            {/*    <Text style={styles.demoItem}>• Người nhà B:  nguoinhaB / 123456</Text>*/}
+            {/*    <Text style={styles.demoItem}>• Người nhà C:  nguoinhaC / 123456</Text>*/}
+            {/*  </View>*/}
+            {/*</Animated.View>*/}
 
           </View>
         </ScrollView>

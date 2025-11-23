@@ -1,97 +1,162 @@
-// API Service - Giả lập tất cả API với mock data
+import axios from 'axios';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = 'http://localhost:3000/api'; // Thay đổi theo server của bạn
+// Cấu hình base URL
+const BASE_URL = 'http://10.0.2.2:8080/api';
+// const BASE_URL = 'http://localhost:8080/api';
 
-// Mock Data
-const MOCK_USERS = {
-    'user_a': {
-        id: 'user_a',
-        username: 'nguoideoA',
-        password: '123456',
-        name: 'Người deo A',
-        role: 'admin',
-        deviceId: 'device_001',
-        watchers: ['user_b', 'user_c', 'user_d']
+// Tạo axios instance
+const apiClient = axios.create({
+    baseURL: BASE_URL,
+    timeout: 10000,
+    headers: {
+        'Content-Type': 'application/json',
     },
-    'user_b': {
-        id: 'user_b',
-        username: 'nguoinhaB',
-        password: '123456',
-        name: 'Người nhà B',
-        role: 'watcher',
-        watchingUser: 'user_a'
+});
+
+// Request interceptor - Thêm token vào mỗi request
+apiClient.interceptors.request.use(
+    async (config) => {
+        // Lấy token từ AsyncStorage (nếu có)
+        const token = await AsyncStorage.getItem('authToken');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
     },
-    'user_c': {
-        id: 'user_c',
-        username: 'nguoinhaC',
-        password: '123456',
-        name: 'Người nhà C',
-        role: 'watcher',
-        watchingUser: 'user_a'
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Response interceptor - Xử lý response và errors
+apiClient.interceptors.response.use(
+    (response) => {
+        return response.data;
     },
-    'user_d': {
-        id: 'user_d',
-        username: 'nguoinhaD',
-        password: '123456',
-        name: 'Người nhà D',
-        role: 'watcher',
-        watchingUser: 'user_a'
+    (error) => {
+        if (error.response) {
+            // Server trả về error response
+            console.error('API Error:', error.response.data);
+
+            // Xử lý các trường hợp đặc biệt
+            if (error.response.status === 401) {
+                // Token hết hạn, logout user
+                // handleLogout();
+            }
+        } else if (error.request) {
+            // Request được gửi nhưng không nhận được response
+            console.error('Network Error:', error.request);
+        } else {
+            console.error('Error:', error.message);
+        }
+
+        return Promise.reject(error);
+    }
+);
+
+const api = {
+    // GET request
+    get: (url, params = {}) => {
+        return apiClient.get(url, { params });
+    },
+
+    // POST request
+    post: (url, data) => {
+        return apiClient.post(url, data);
+    },
+
+    // PUT request
+    put: (url, data) => {
+        return apiClient.put(url, data);
+    },
+
+    // PATCH request
+    patch: (url, data) => {
+        return apiClient.patch(url, data);
+    },
+
+    // DELETE request
+    delete: (url) => {
+        return apiClient.delete(url);
+    },
+
+    // Upload file với FormData
+    upload: (url, formData) => {
+        return apiClient.post(url, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    },
+};
+
+const UserService = {
+    register: (username, password, name) => {
+        return api.post('/auth/register', { username, password, name });
+    },
+
+    login: (username, password) => {
+        return api.post('/auth/login', { username, password });
     }
 };
 
-// Mock data cho heartbeat (nhịp tim)
-let mockHeartRateData = {
-    user_a: {
-        current: 72,
-        timestamp: new Date().toISOString(),
-        history: []
-    }
-};
-
-// Mock data cho trạng thái
-let mockStatusData = {
-    user_a: {
-        status: 'normal', // normal, running, fallen
-        lastUpdate: new Date().toISOString()
-    }
-};
-
-// Mock data cho vị trí GPS
-let mockLocationData = {
-    user_a: {
-        latitude: 21.0285,
-        longitude: 105.8542,
-        timestamp: new Date().toISOString()
-    }
-};
-
-// Mock data cho lịch sử đo
-let mockMeasurementHistory = [
-    {
-        id: '1',
-        userId: 'user_a',
-        heartRate: 75,
-        status: 'normal',
-        timestamp: new Date(Date.now() - 3600000).toISOString()
+const DeviceService = {
+    register: (deviceData) => {
+        return api.post('/register-device', deviceData);
     },
-    {
-        id: '2',
-        userId: 'user_a',
-        heartRate: 78,
-        status: 'normal',
-        timestamp: new Date(Date.now() - 7200000).toISOString()
-    },
-    {
-        id: '3',
-        userId: 'user_a',
-        heartRate: 120,
-        status: 'running',
-        timestamp: new Date(Date.now() - 10800000).toISOString()
-    }
-];
 
-// Helper function để giả lập network delay
-const simulateDelay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
+    getDevices: () => {
+        return api.get('/get-devices');
+    }
+};
+
+const RecordService = {
+    save: (recordData) => {
+        return api.post('/save-record', recordData);
+    },
+
+    getRecords: (username) => {
+        return api.get('/get-records?username=' + username);
+    }
+};
+
+const FallService = {
+    save: (fallData) => {
+        return api.post('/save-fall-event', fallData);
+    },
+
+    getFalls: (username) => {
+        return api.get('/get-fall-events?username=' + username);
+    }
+};
+
+const UserRelationshipService = {
+
+    search: (search) => {
+        return api.get('/search-user?username='+search);
+    },
+
+    getFollowing: () => {
+        return api.get('/get-following');
+    },
+
+    getFollower: () => {
+        return api.get('/get-followers');
+    },
+
+    invite: (username) => {
+        return api.post('/invite', {username: username});
+    },
+
+    accept: (userRelationId) => {
+        return api.post('/accept', {userRelationId: userRelationId});
+    },
+
+    reject: (userRelationId) => {
+        return api.post('/reject', {userRelationId: userRelationId});
+    }
+};
 
 // Helper function để tạo response giống API thực
 const createResponse = (data, success = true) => {
@@ -108,33 +173,20 @@ class ApiService {
         this.currentUser = null;
     }
 
-    // ============ Authentication APIs ============
-
-    /**
-     * Đăng nhập
-     */
     async login(username, password) {
-        await simulateDelay();
-
-        const user = Object.values(MOCK_USERS).find(
-            u => u.username === username && u.password === password
-        );
-
-        if (user) {
-            const token = `mock_token_${user.id}_${Date.now()}`;
+        const response = await UserService.login(username, password);
+        if (response) {
+            const token = response.token;
             this.authToken = token;
-            this.currentUser = user;
+            this.currentUser = response.user;
 
-            // Lưu token vào storage (sẽ implement ở AuthContext)
             return createResponse({
                 token,
                 user: {
-                    id: user.id,
-                    username: user.username,
-                    name: user.name,
-                    role: user.role,
-                    deviceId: user.deviceId,
-                    watchers: user.watchers
+                    id: response.user.id,
+                    username: response.user.username,
+                    name: response.user.name,
+                    role: response.user.role,
                 }
             });
         }
@@ -142,353 +194,128 @@ class ApiService {
         throw new Error('Tên đăng nhập hoặc mật khẩu không đúng');
     }
 
-    /**
-     * Đăng ký
-     */
     async register(userData) {
-        await simulateDelay();
 
-        // Kiểm tra username đã tồn tại
-        const exists = Object.values(MOCK_USERS).find(
-            u => u.username === userData.username
-        );
-
-        if (exists) {
-            throw new Error('Tên đăng nhập đã tồn tại');
+        const response = await UserService.register(userData.username, userData.password, userData.name);
+        console.log(response);
+        if (!response) {
+            throw new Error('Create field');
         }
 
         const newUser = {
-            id: `user_${Date.now()}`,
-            username: userData.username,
-            password: userData.password,
-            name: userData.name,
-            role: userData.role || 'watcher',
+            id: response.id,
+            username: response.username,
+            name: response.username,
+            role: response.role || 'watcher',
             watchingUser: userData.watchingUser
         };
 
-        MOCK_USERS[newUser.id] = newUser;
 
         return createResponse({
             user: newUser
         });
     }
 
-    /**
-     * Đăng xuất
-     */
     async logout() {
-        await simulateDelay(200);
         this.authToken = null;
         this.currentUser = null;
         return createResponse({ message: 'Đăng xuất thành công' });
     }
 
-    /**
-     * Lấy thông tin user hiện tại
-     */
-    async getCurrentUser() {
-        await simulateDelay(200);
-        if (!this.currentUser) {
-            throw new Error('Chưa đăng nhập');
+
+    async addDevice(deviceData){
+        const response = await DeviceService.register(deviceData);
+
+        if (response) {
+            return createResponse({
+                deviceData
+            });
         }
-        return createResponse({ user: this.currentUser });
+
+        throw new Error('Lỗi thêm device');
     }
 
-    // ============ Bluetooth / IoT Device APIs ============
+    async getDevices(){
+        const response = await DeviceService.getDevices();
 
-    /**
-     * Kết nối Bluetooth với thiết bị
-     */
-    async connectBluetooth(deviceId) {
-        await simulateDelay(1000);
-        console.log(`Đang kết nối với thiết bị: ${deviceId}`);
+        if (response) {
+            return response
+        }
 
-        // Giả lập kết nối thành công
-        return createResponse({
-            connected: true,
-            deviceId,
-            deviceName: 'IoT Fall Detection Device',
-            message: 'Kết nối thành công'
-        });
+        throw new Error('Lỗi get devices');
     }
 
-    /**
-     * Ngắt kết nối Bluetooth
-     */
-    async disconnectBluetooth(deviceId) {
-        await simulateDelay(300);
-        return createResponse({
-            connected: false,
-            deviceId,
-            message: 'Đã ngắt kết nối'
-        });
+    async saveRecord(recordData){
+        const response = await RecordService.save(recordData);
+        if (response) {
+            return recordData
+        }
     }
 
-    // ============ Real-time Data APIs ============
-
-    /**
-     * Lấy nhịp tim realtime
-     */
-    async getHeartRate(userId) {
-        await simulateDelay(200);
-
-        // Giả lập nhịp tim thay đổi ngẫu nhiên
-        const baseRate = mockHeartRateData[userId]?.current || 72;
-        const variation = Math.floor(Math.random() * 10) - 5;
-        const currentRate = Math.max(60, Math.min(100, baseRate + variation));
-
-        mockHeartRateData[userId] = {
-            current: currentRate,
-            timestamp: new Date().toISOString(),
-            history: [
-                ...(mockHeartRateData[userId]?.history || []).slice(-99),
-                { rate: currentRate, timestamp: new Date().toISOString() }
-            ]
-        };
-
-        return createResponse({
-            userId,
-            heartRate: currentRate,
-            timestamp: new Date().toISOString()
-        });
-    }
-
-    /**
-     * Lấy trạng thái hiện tại (bình thường / đang chạy / té ngã)
-     */
-    async getStatus(userId) {
-        await simulateDelay(200);
-
-        const status = mockStatusData[userId] || {
-            status: 'normal',
-            lastUpdate: new Date().toISOString()
-        };
-
-        return createResponse({
-            userId,
-            status: status.status,
-            lastUpdate: status.lastUpdate
-        });
-    }
-
-    /**
-     * Cập nhật trạng thái (từ thiết bị IoT)
-     */
-    async updateStatus(userId, status) {
-        await simulateDelay(200);
-
-        mockStatusData[userId] = {
-            status,
-            lastUpdate: new Date().toISOString()
-        };
-
-        return createResponse({
-            userId,
-            status,
-            message: 'Cập nhật trạng thái thành công'
-        });
+    async getRecords(username){
+        const response = await RecordService.getRecords(username);
+        if (response) {
+            return response
+        }
     }
 
     /**
      * Phát hiện té ngã
      */
-    async detectFall(userId, fallData) {
-        await simulateDelay(300);
-
-        console.log('⚠️ Phát hiện té ngã!', fallData);
-
-        // Cập nhật trạng thái
-        mockStatusData[userId] = {
-            status: 'fallen',
-            lastUpdate: new Date().toISOString(),
-            fallData
-        };
-
-        // Thêm vào lịch sử
-        mockMeasurementHistory.unshift({
-            id: `fall_${Date.now()}`,
-            userId,
-            status: 'fallen',
-            timestamp: new Date().toISOString(),
-            fallData
-        });
-
-        return createResponse({
-            userId,
-            fallDetected: true,
-            timestamp: new Date().toISOString(),
-            message: 'Đã ghi nhận sự cố té ngã'
-        });
-    }
-
-    // ============ GPS Location APIs ============
-
-    /**
-     * Lấy vị trí GPS hiện tại
-     */
-    async getLocation(userId) {
-        await simulateDelay(300);
-
-        const location = mockLocationData[userId] || {
-            latitude: 21.0285,
-            longitude: 105.8542,
-            timestamp: new Date().toISOString()
-        };
-
-        return createResponse({
-            userId,
-            location,
-            address: 'Hà Nội, Việt Nam' // Mock address
-        });
-    }
-
-    /**
-     * Cập nhật vị trí GPS
-     */
-    async updateLocation(userId, latitude, longitude) {
-        await simulateDelay(200);
-
-        mockLocationData[userId] = {
-            latitude,
-            longitude,
-            timestamp: new Date().toISOString()
-        };
-
-        return createResponse({
-            userId,
-            location: mockLocationData[userId],
-            message: 'Cập nhật vị trí thành công'
-        });
-    }
-
-    // ============ History APIs ============
-
-    /**
-     * Lấy lịch sử đo
-     */
-    async getMeasurementHistory(userId, limit = 50) {
-        await simulateDelay(300);
-
-        const history = mockMeasurementHistory
-            .filter(m => m.userId === userId)
-            .slice(0, limit);
-
-        return createResponse({
-            userId,
-            history,
-            total: history.length
-        });
-    }
-
-    // ============ Family/Watcher APIs ============
-
-    /**
-     * Lấy danh sách người theo dõi
-     */
-    async getWatchers(userId) {
-        await simulateDelay(200);
-
-        const user = MOCK_USERS[userId];
-        if (!user || !user.watchers) {
-            return createResponse({ watchers: [] });
+    async detectFall(fallData) {
+        const response = await FallService.save(fallData);
+        if (response) {
+            return response
         }
-
-        const watchers = user.watchers.map(watcherId => {
-            const watcher = MOCK_USERS[watcherId];
-            return {
-                id: watcher.id,
-                username: watcher.username,
-                name: watcher.name
-            };
-        });
-
-        return createResponse({ watchers });
     }
 
-    /**
-     * Thêm người theo dõi
-     */
-    async addWatcher(userId, watcherUsername) {
-        await simulateDelay(300);
-
-        const watcher = Object.values(MOCK_USERS).find(
-            u => u.username === watcherUsername
-        );
-
-        if (!watcher) {
-            throw new Error('Không tìm thấy người dùng');
+    async getFalls(username){
+        const response = await FallService.getFalls(username);
+        if (response) {
+            return response
         }
-
-        const user = MOCK_USERS[userId];
-        if (!user.watchers) {
-            user.watchers = [];
-        }
-
-        if (!user.watchers.includes(watcher.id)) {
-            user.watchers.push(watcher.id);
-            watcher.watchingUser = userId;
-        }
-
-        return createResponse({
-            message: 'Đã thêm người theo dõi',
-            watcher: {
-                id: watcher.id,
-                username: watcher.username,
-                name: watcher.name
-            }
-        });
     }
 
-    // ============ Notification APIs ============
-
-    /**
-     * Gửi thông báo đến gia đình (FCM)
-     */
-    async sendNotificationToFamily(userId, notification) {
-        await simulateDelay(500);
-
-        console.log('📱 Gửi thông báo:', notification);
-
-        const user = MOCK_USERS[userId];
-        if (!user || !user.watchers) {
-            return createResponse({ sent: false, message: 'Không có người theo dõi' });
+    async searchUsers(username) {
+        const response = await UserRelationshipService.search(username);
+        if (response) {
+            return response
         }
-
-        // Giả lập gửi FCM đến tất cả người theo dõi
-        const recipients = user.watchers.map(watcherId => ({
-            userId: watcherId,
-            sent: true,
-            timestamp: new Date().toISOString()
-        }));
-
-        return createResponse({
-            sent: true,
-            recipients,
-            notification,
-            message: `Đã gửi thông báo đến ${recipients.length} người`
-        });
     }
 
-    /**
-     * Lấy token FCM
-     */
-    async getFCMToken() {
-        await simulateDelay(200);
-        return createResponse({
-            token: `fcm_mock_token_${Date.now()}`
-        });
+    async getFollowing(){
+        const response = await UserRelationshipService.getFollowing();
+        if (response) {
+            return response
+        }
     }
 
-    /**
-     * Đăng ký FCM token
-     */
-    async registerFCMToken(userId, fcmToken) {
-        await simulateDelay(200);
-        console.log('Đăng ký FCM token:', userId, fcmToken);
-        return createResponse({
-            registered: true,
-            message: 'Đã đăng ký nhận thông báo'
-        });
+    async getFollower(){
+        const response = await UserRelationshipService.getFollower();
+        if (response) {
+            return response
+        }
+    }
+
+    async invite(userName) {
+        const response = await UserRelationshipService.invite(userName);
+        if (response) {
+            return response
+        }
+    }
+
+    async accept(relationshipId) {
+        const response = await UserRelationshipService.accept(relationshipId);
+        if (response) {
+            return response
+        }
+    }
+
+    async reject(relationshipId) {
+        const response = await UserRelationshipService.reject(relationshipId);
+        if (response) {
+            return response
+        }
     }
 
     // ============ WebSocket / Real-time Simulation ============
@@ -551,6 +378,5 @@ class ApiService {
     }
 }
 
-// Export singleton instance
 const apiService = new ApiService();
 export default apiService;

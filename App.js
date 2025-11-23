@@ -8,6 +8,7 @@ import { IoTProvider } from './src/contexts/IoTContext';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import BluetoothScreen from './src/screens/BluetoothScreen';
 import LocationScreen from './src/screens/LocationScreen';
@@ -15,6 +16,9 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import DebugScreen from "./src/screens/DebugScreen";
 import RelationsScreen from "./src/screens/RelationsScreen";
 import PatientDetailScreen from "./src/screens/PatientDetailScreen";
+import FallAlertModal from "./src/components/FallAlertModal";
+import SensorSender from "./src/screens/SensorSender";
+import SensorDashboard from "./src/screens/SensorDashboard";
 
 const Stack = createNativeStackNavigator();
 
@@ -39,6 +43,7 @@ const AppNavigator = () => {
                     // Auth Stack
                     <>
                         <Stack.Screen name="Login" component={LoginScreen} />
+                        <Stack.Screen name="Register" component={RegisterScreen} />
                     </>
                 ) : (
                     // Main App Stack
@@ -48,6 +53,7 @@ const AppNavigator = () => {
                         <Stack.Screen name="Location" component={LocationScreen} />
                         <Stack.Screen name="History" component={HistoryScreen} />
                         <Stack.Screen name="Debug" component={DebugScreen} />
+                        <Stack.Screen name="SensorDashboard" component={SensorDashboard} />
                         <Stack.Screen name="Relations" component={RelationsScreen} />
                         <Stack.Screen name="PatientDetail" component={PatientDetailScreen} />
                     </>
@@ -63,6 +69,8 @@ const App = () => {
         <AuthProvider>
             <IoTProvider>
                 <AppNavigator />
+                <SensorSender />
+                <FallAlertModal />
             </IoTProvider>
         </AuthProvider>
     );

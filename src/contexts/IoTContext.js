@@ -1,13 +1,52 @@
-// IoTContext.js - Context quản lý kết nối BLE và dữ liệu IoT
+// IoTContext.js - Context quản lý kết nối BLE và dữ liệu IoT (với Fake Connection & Devices)
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
+import fakeDataGenerator from "../services/fakedata";
+// import
+import apiService from "../services/api.service";
 
 // UUID phải khớp với ESP32
 const SERVICE_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
 const CHARACTERISTIC_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E';
+
+// ============================================
+// FAKE DEVICES DATA
+// ============================================
+const FAKE_DEVICES = [
+    {
+        id: 'FAKE-ESP32-001',
+        name: 'ESP32 Device A',
+        rssi: -45,
+        isConnectable: true,
+    },
+    {
+        id: 'FAKE-ESP32-002',
+        name: 'ESP32 Device B',
+        rssi: -62,
+        isConnectable: true,
+    },
+    {
+        id: 'FAKE-ESP32-003',
+        name: 'Fall Detector 1',
+        rssi: -58,
+        isConnectable: true,
+    },
+    {
+        id: 'FAKE-ESP32-004',
+        name: 'Health Monitor Pro',
+        rssi: -71,
+        isConnectable: true,
+    },
+    {
+        id: 'FAKE-ESP32-005',
+        name: 'IoT Sensor X1',
+        rssi: -53,
+        isConnectable: true,
+    },
+];
 
 const IoTContext = createContext();
 
@@ -23,6 +62,12 @@ export const IoTProvider = ({ children }) => {
     // BLE Manager
     const [bleManager] = useState(() => new BleManager());
 
+    // ============================================
+    // FAKE DATA MODE - BIẾN MỚI
+    // ============================================
+    const [useFakeData, setUseFakeData] = useState(true); // false = real data, true = fake data
+    const [fakeDataInterval, setFakeDataInterval] = useState(1000); // Interval cho fake data (ms)
+
     // Connection states
     const [isBluetoothConnected, setIsBluetoothConnected] = useState(false);
     const [connectedDevice, setConnectedDevice] = useState(null);
@@ -35,7 +80,7 @@ export const IoTProvider = ({ children }) => {
         heartRateValid: false,
         fallDetected: false,
         severity: null,
-        batteryLevel: null,
+        battery: null,
         isCharging: false,
         signalQuality: null,
         timestamp: null,
@@ -63,18 +108,115 @@ export const IoTProvider = ({ children }) => {
         setDebugLogs(prev => [log, ...prev].slice(0, 50));
     };
 
+    // ============================================
+    // FAKE DATA MANAGEMENT
+    // ============================================
+    useEffect(() => {
+        if (useFakeData && isBluetoothConnected) {
+            // Chỉ bắt đầu fake data generator khi đã "connected"
+            addDebugLog('🎭 Bắt đầu generate FAKE DATA');
+
+            const unsubscribe = fakeDataGenerator.subscribe((data) => {
+                // Cập nhật sensor data từ fake generator
+                setSensorData({
+                    spo2: data.spo2,
+                    heartRate: data.heartRate,
+                    heartRateValid: data.heartRateValid,
+                    fallDetected: data.fallDetected,
+                    severity: data.severity,
+                    battery: data.battery,
+                    isCharging: data.isCharging,
+                    signalQuality: data.signalQuality,
+                    timestamp: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
+                    deviceId: connectedDevice?.id || data.deviceId,
+                    step: data.step || 0,
+                });
+
+                // Lưu vào history
+                setDataHistory(prev => [
+                    {
+                        ...data,
+                        receivedAt: new Date().toISOString(),
+                    },
+                    ...prev
+                ].slice(0, 100));
+            });
+
+            fakeDataGenerator.start(null, fakeDataInterval);
+
+            return () => {
+                fakeDataGenerator.stop();
+                unsubscribe();
+                addDebugLog('🎭 Dừng generate FAKE DATA');
+            };
+        } else {
+            // Dừng fake data khi không connected hoặc chuyển về real mode
+            fakeDataGenerator.stop();
+        }
+    }, [useFakeData, isBluetoothConnected, fakeDataInterval, connectedDevice]);
+
     useEffect(() => {
         // Yêu cầu quyền khi khởi động
-        requestBluetoothPermissions();
+        if (!useFakeData) {
+            requestBluetoothPermissions();
+        }
 
         // Cleanup khi unmount
         return () => {
-            if (connectedDevice) {
+            if (connectedDevice && !useFakeData) {
                 disconnectBluetooth();
             }
-            bleManager.destroy();
+            if (!useFakeData) {
+                bleManager.destroy();
+            }
         };
-    }, []);
+    }, [useFakeData]);
+
+    // ============================================
+    // TOGGLE FAKE DATA MODE
+    // ============================================
+    const toggleFakeDataMode = () => {
+        if (!useFakeData) {
+            // Đang chuyển sang fake mode
+            if (connectedDevice && !connectedDevice.id.startsWith('FAKE-')) {
+                // Đang kết nối với thiết bị THẬT
+                Alert.alert(
+                    'Xác nhận',
+                    'Bạn đang kết nối với thiết bị thật. Chuyển sang fake data sẽ ngắt kết nối. Tiếp tục?',
+                    [
+                        { text: 'Hủy', style: 'cancel' },
+                        {
+                            text: 'OK',
+                            onPress: async () => {
+                                await disconnectBluetooth();
+                                setUseFakeData(true);
+                                addDebugLog('✅ Đã chuyển sang chế độ FAKE DATA');
+                            }
+                        }
+                    ]
+                );
+            } else {
+                setUseFakeData(true);
+                addDebugLog('✅ Đã chuyển sang chế độ FAKE DATA');
+            }
+        } else {
+            // Chuyển về real mode
+            if (connectedDevice?.id.startsWith('FAKE-')) {
+                // Đang kết nối fake device, ngắt nó
+                disconnectBluetooth();
+            }
+            setUseFakeData(false);
+            addDebugLog('✅ Đã chuyển sang chế độ REAL DATA');
+        }
+    };
+
+    // ============================================
+    // SET FAKE DATA INTERVAL
+    // ============================================
+    const setFakeDataUpdateInterval = (interval) => {
+        setFakeDataInterval(interval);
+        addDebugLog(`⏱️ Thay đổi interval fake data: ${interval}ms`);
+    };
 
     // ============================================
     // YÊU CẦU QUYỀN BLUETOOTH
@@ -131,15 +273,42 @@ export const IoTProvider = ({ children }) => {
     };
 
     // ============================================
-    // QUÉT THIẾT BỊ BLE
+    // QUÉT THIẾT BỊ BLE (Fake + Real)
     // ============================================
     const scanBluetoothDevices = async () => {
-        const hasPermission = await requestBluetoothPermissions();
-        if (!hasPermission) return;
-
         setScanning(true);
         setAvailableDevices([]);
         addDebugLog('Bắt đầu quét thiết bị...');
+
+        // ===== FAKE MODE: Return fake devices =====
+        if (useFakeData) {
+            addDebugLog('🎭 FAKE MODE: Trả về danh sách thiết bị giả');
+
+            // Simulate scanning delay
+            setTimeout(() => {
+                // Add devices one by one với delay nhỏ để giống thật
+                FAKE_DEVICES.forEach((device, index) => {
+                    setTimeout(() => {
+                        addDebugLog(`Tìm thấy: ${device.name} (${device.id})`);
+                        setAvailableDevices(prev => [...prev, device]);
+                    }, index * 300); // Mỗi device cách nhau 300ms
+                });
+            }, 500);
+
+            // Stop scanning sau 3 giây (giống thật)
+            setTimeout(() => {
+                setScanning(false);
+                addDebugLog(`Kết thúc quét thiết bị - Tìm thấy ${FAKE_DEVICES.length} thiết bị`);
+            }, 3000);
+            return;
+        }
+
+        // ===== REAL MODE: Scan thật =====
+        const hasPermission = await requestBluetoothPermissions();
+        if (!hasPermission) {
+            setScanning(false);
+            return;
+        }
 
         try {
             const state = await bleManager.state();
@@ -166,7 +335,6 @@ export const IoTProvider = ({ children }) => {
                 if (device && device.name) {
                     addDebugLog(`Tìm thấy: ${device.name} (${device.id})`);
                     setAvailableDevices(prevDevices => {
-                        // Kiểm tra device đã tồn tại chưa
                         const exists = prevDevices.find(d => d.id === device.id);
                         if (!exists) {
                             return [...prevDevices, {
@@ -196,12 +364,50 @@ export const IoTProvider = ({ children }) => {
     };
 
     // ============================================
-    // KẾT NỐI BLUETOOTH
+    // KẾT NỐI BLUETOOTH (Fake + Real)
     // ============================================
     const connectBluetooth = async (deviceId) => {
         setLoading(true);
         addDebugLog(`Đang kết nối đến: ${deviceId}`);
 
+        // ===== FAKE MODE: Fake connection =====
+        if (useFakeData && deviceId.startsWith('FAKE-')) {
+            addDebugLog('🎭 FAKE MODE: Giả lập kết nối...');
+
+            // Simulate connection delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // Find fake device
+            const fakeDevice = FAKE_DEVICES.find(d => d.id === deviceId);
+            if (!fakeDevice) {
+                addDebugLog('✗ Không tìm thấy thiết bị giả');
+                setLoading(false);
+                Alert.alert('Lỗi', 'Không tìm thấy thiết bị');
+                return false;
+            }
+
+            addDebugLog('✓ Đã kết nối thành công! (Fake)');
+            addDebugLog(`✓ Device: ${fakeDevice.name}`);
+            addDebugLog('✓ MTU đã yêu cầu: 512 (Fake)');
+            addDebugLog('✓ Đã discover services và characteristics (Fake)');
+            addDebugLog('✓ Service target đã tìm thấy (Fake)');
+            addDebugLog('✓ Tìm thấy 3 characteristics (Fake)');
+            addDebugLog('Bắt đầu monitor dữ liệu... (Fake)');
+
+            setConnectedDevice({
+                id: fakeDevice.id,
+                name: fakeDevice.name,
+                rssi: fakeDevice.rssi,
+            });
+            setIsBluetoothConnected(true);
+            setLoading(false);
+
+            await apiService.addDevice({id: fakeDevice.id, name: fakeDevice.name, macAddress:"B1:B2:B3:B4:B5:B6"})
+
+            return true;
+        }
+
+        // ===== REAL MODE: Real connection =====
         try {
             // Dừng scan nếu đang chạy
             bleManager.stopDeviceScan();
@@ -212,19 +418,18 @@ export const IoTProvider = ({ children }) => {
             });
             addDebugLog('Đã kết nối thành công!');
 
-            // YÊU CẦU MTU SIZE LỚN HƠN để nhận được JSON dài
+            // YÊU CẦU MTU SIZE LỚN HƠN
             try {
                 const mtu = await device.requestMTU(512);
-                addDebugLog(`✓ MTU đã tăng lên: ${mtu} bytes`);
+                addDebugLog(`MTU đã yêu cầu: ${mtu}`);
             } catch (mtuError) {
-                addDebugLog(`⚠ Không thể tăng MTU: ${mtuError.message}`);
+                addDebugLog(`Không thể set MTU: ${mtuError.message}`);
             }
 
             // Discover services và characteristics
             await device.discoverAllServicesAndCharacteristics();
-            addDebugLog('Đã discover services');
+            addDebugLog('Đã discover services và characteristics');
 
-            // Kiểm tra service và characteristic có tồn tại không
             try {
                 const services = await device.services();
                 addDebugLog(`Tìm thấy ${services.length} services`);
@@ -233,7 +438,6 @@ export const IoTProvider = ({ children }) => {
                     addDebugLog(`Service: ${service.uuid}`);
                 });
 
-                // Kiểm tra service cụ thể
                 const targetService = services.find(s => s.uuid.toLowerCase() === SERVICE_UUID.toLowerCase());
                 if (targetService) {
                     addDebugLog('✓ Service target đã tìm thấy');
@@ -269,11 +473,11 @@ export const IoTProvider = ({ children }) => {
     };
 
     // ============================================
-    // MONITOR DỮ LIỆU TỪ ESP32
+    // MONITOR DỮ LIỆU TỪ ESP32 - REAL DATA LOGIC (KHÔNG THAY ĐỔI)
     // ============================================
     const startMonitoringData = (device) => {
         addDebugLog('Bắt đầu monitor dữ liệu...');
-        let buffer = ''; // Local buffer cho mỗi monitoring session
+        let buffer = '';
 
         device.monitorCharacteristicForService(
             SERVICE_UUID,
@@ -287,37 +491,29 @@ export const IoTProvider = ({ children }) => {
 
                 if (characteristic?.value) {
                     try {
-                        // Decode base64 value
                         const chunk = Buffer.from(characteristic.value, 'base64').toString('utf-8');
                         addDebugLog(`Nhận chunk (${chunk.length} bytes): ${chunk.substring(0, 50)}...`);
 
-                        // Ghép vào buffer
                         buffer += chunk;
 
-                        // Kiểm tra xem đã có JSON hoàn chỉnh chưa (kết thúc bằng '}'
                         if (buffer.includes('}')) {
-                            // Tìm vị trí dấu '}' cuối cùng
                             const lastBraceIndex = buffer.lastIndexOf('}');
                             const completeJson = buffer.substring(0, lastBraceIndex + 1);
-
-                            // Phần còn lại giữ lại cho lần sau
                             buffer = buffer.substring(lastBraceIndex + 1);
 
                             addDebugLog(`JSON hoàn chỉnh (${completeJson.length} bytes): ${completeJson}`);
 
                             try {
-                                // Parse JSON
                                 const data = JSON.parse(completeJson);
-                                addDebugLog(`✓ Parse thành công: SpO2=${data.spo2}, HR=${data.heartRate}, Battery=${data.batteryLevel}%`);
+                                addDebugLog(`✓ Parse thành công: SpO2=${data.spo2}, HR=${data.heartRate}, Battery=${data.battery}%`);
 
-                                // Cập nhật sensor data
                                 setSensorData({
                                     spo2: data.spo2,
                                     heartRate: data.heartRate,
                                     heartRateValid: data.heartRateValid,
                                     fallDetected: data.fallDetected,
                                     severity: data.severity,
-                                    batteryLevel: data.batteryLevel,
+                                    battery: data.battery,
                                     isCharging: data.isCharging,
                                     signalQuality: data.signalQuality,
                                     timestamp: new Date().toLocaleTimeString('vi-VN'),
@@ -325,22 +521,20 @@ export const IoTProvider = ({ children }) => {
                                     step: data.step,
                                 });
 
-                                // Lưu vào history
                                 setDataHistory(prev => [
                                     {
                                         ...data,
                                         receivedAt: new Date().toISOString(),
                                     },
                                     ...prev
-                                ].slice(0, 100)); // Giữ 100 bản ghi gần nhất
+                                ].slice(0, 100));
 
-                                // Reset buffer sau khi parse thành công
                                 buffer = '';
 
                             } catch (parseError) {
                                 addDebugLog(`✗ Lỗi parse JSON: ${parseError.message}`);
                                 addDebugLog(`Dữ liệu lỗi: ${completeJson}`);
-                                buffer = ''; // Reset buffer nếu parse lỗi
+                                buffer = '';
                             }
                         } else {
                             addDebugLog(`Đang chờ thêm dữ liệu... (buffer hiện tại: ${buffer.length} bytes)`);
@@ -349,7 +543,7 @@ export const IoTProvider = ({ children }) => {
                     } catch (e) {
                         console.error('Process error:', e);
                         addDebugLog(`✗ Lỗi xử lý: ${e.message}`);
-                        buffer = ''; // Reset buffer khi có lỗi
+                        buffer = '';
                     }
                 } else {
                     addDebugLog('Nhận characteristic nhưng không có value');
@@ -359,9 +553,32 @@ export const IoTProvider = ({ children }) => {
     };
 
     // ============================================
-    // NGẮT KẾT NỐI
+    // NGẮT KẾT NỐI (Fake + Real)
     // ============================================
     const disconnectBluetooth = async () => {
+        // ===== FAKE MODE =====
+        if (useFakeData || connectedDevice?.id.startsWith('FAKE-')) {
+            addDebugLog('🎭 Ngắt kết nối fake device...');
+            setConnectedDevice(null);
+            setIsBluetoothConnected(false);
+            setSensorData({
+                spo2: null,
+                heartRate: null,
+                heartRateValid: false,
+                fallDetected: false,
+                severity: null,
+                battery: null,
+                isCharging: false,
+                signalQuality: null,
+                timestamp: null,
+                deviceId: null,
+                step: null,
+            });
+            addDebugLog('✓ Đã ngắt kết nối (Fake)');
+            return;
+        }
+
+        // ===== REAL MODE =====
         if (connectedDevice) {
             try {
                 await connectedDevice.cancelConnection();
@@ -373,7 +590,7 @@ export const IoTProvider = ({ children }) => {
                     heartRateValid: false,
                     fallDetected: false,
                     severity: null,
-                    batteryLevel: null,
+                    battery: null,
                     isCharging: false,
                     signalQuality: null,
                     timestamp: null,
@@ -392,6 +609,10 @@ export const IoTProvider = ({ children }) => {
     // ĐỌC DỮ LIỆU NGAY LẬP TỨC
     // ============================================
     const readSensorData = async () => {
+        if (useFakeData || connectedDevice?.id.startsWith('FAKE-')) {
+            return sensorData;
+        }
+
         if (!connectedDevice) {
             Alert.alert('Lỗi', 'Chưa kết nối đến thiết bị');
             return null;
@@ -429,11 +650,24 @@ export const IoTProvider = ({ children }) => {
         dataHistory,
         debugLogs,
 
+        // Fake Data States
+        useFakeData,
+        fakeDataInterval,
+
         // Functions
         scanBluetoothDevices,
         connectBluetooth,
         disconnectBluetooth,
         readSensorData,
+
+        // Fake Data Functions
+        toggleFakeDataMode,
+        setFakeDataUpdateInterval,
+
+        // Fake Data Generator Controls
+        triggerFakeFall: () => fakeDataGenerator.triggerFall(),
+        setFakeBatteryLevel: (level) => fakeDataGenerator.setBatteryLevel(level),
+        toggleFakeCharging: () => fakeDataGenerator.toggleCharging(),
     };
 
     return (
