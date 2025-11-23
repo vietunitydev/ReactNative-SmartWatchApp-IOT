@@ -7,10 +7,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIoT } from '../contexts/IoTContext';
 import apiService from "../services/api.service";
+import {useAuth} from "../contexts/AuthContext";
 
 const { width } = Dimensions.get('window');
 
 const SensorDashboard = ({ navigation }) => {
+    const {user} = useAuth();
     const { sensorData, isBluetoothConnected, connectedDevice } = useIoT();
 
     // States
@@ -76,6 +78,7 @@ const SensorDashboard = ({ navigation }) => {
 
     // Auto sync data lên server
     const handleAutoSync = async () => {
+        if(!user) return;
         if (isSyncing) return;
 
         setIsSyncing(true);
@@ -83,7 +86,6 @@ const SensorDashboard = ({ navigation }) => {
         startSyncAnimation();
 
         try {
-
             const response = await apiService.saveRecord( {
                 spo2: sensorData.spo2,
                 heartRate: sensorData.heartRate,
