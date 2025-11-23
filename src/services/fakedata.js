@@ -7,14 +7,14 @@ class FakeDataGenerator {
         this.ranges = {
             spo2: { min: 90, max: 100, normal: { min: 95, max: 100 } },
             heartRate: { min: 50, max: 120, normal: { min: 60, max: 100 } },
-            batteryLevel: { min: 0, max: 100 },
+            battery: { min: 0, max: 100 },
             fallProbability: 0.02,
             stepIncrement: { min: 0, max: 3 },
         };
         this.currentState = {
             spo2: 98,
             heartRate: 75,
-            batteryLevel: 85,
+            battery: 85,
             fallDetected: false,
             isCharging: false,
             step: 0,
@@ -153,7 +153,7 @@ class FakeDataGenerator {
         // Đi bộ làm pin giảm nhanh hơn
         const batteryDrainChance = this.currentState.isWalking ? 0.90 : 0.95;
         if (!this.currentState.isCharging && Math.random() > batteryDrainChance) {
-            this.currentState.batteryLevel = Math.max(0, this.currentState.batteryLevel - 1);
+            this.currentState.battery = Math.max(0, this.currentState.battery - 1);
         }
 
         // Charging: random change charging status (hiếm khi thay đổi)
@@ -162,9 +162,9 @@ class FakeDataGenerator {
         }
 
         // Tăng pin khi đang sạc
-        if (this.currentState.isCharging && this.currentState.batteryLevel < 100) {
+        if (this.currentState.isCharging && this.currentState.battery < 100) {
             if (Math.random() > 0.9) {
-                this.currentState.batteryLevel = Math.min(100, this.currentState.batteryLevel + 1);
+                this.currentState.battery = Math.min(100, this.currentState.battery + 1);
             }
         }
 
@@ -181,7 +181,7 @@ class FakeDataGenerator {
             heartRateValid,
             fallDetected: this.currentState.fallDetected,
             severity,
-            batteryLevel: this.currentState.batteryLevel,
+            battery: this.currentState.battery,
             isCharging: this.currentState.isCharging,
             signalQuality,
             timestamp: Date.now(),
@@ -251,7 +251,7 @@ class FakeDataGenerator {
         this.currentState = {
             spo2: 98,
             heartRate: 75,
-            batteryLevel: 85,
+            battery: 85,
             fallDetected: false,
             isCharging: false,
             step: 0, // Reset về 0
@@ -282,7 +282,7 @@ class FakeDataGenerator {
      * Set battery level
      */
     setBatteryLevel(level) {
-        this.currentState.batteryLevel = Math.max(0, Math.min(100, level));
+        this.currentState.battery = Math.max(0, Math.min(100, level));
     }
 
     /**

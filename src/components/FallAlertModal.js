@@ -62,6 +62,7 @@ const FallAlertModal = () => {
                     Vibration.vibrate([500, 200, 500, 200, 500]);
                 }
 
+                console.log("Bat dau send api (detect Fall ) toi server")
                 // ⬇⬇⬇ Gửi API detect fall
                 await apiService.detectFall({
                     deviceId: sensorData.deviceId,
@@ -72,6 +73,9 @@ const FallAlertModal = () => {
                     latitude,
                     longitude,
                 });
+
+                console.log("Send xong api (detect Fall ) toi server")
+
             },
             (error) => {
                 console.log("Location error:", error);

@@ -80,7 +80,7 @@ const DebugScreen = ({ navigation }) => {
                             Severity: {sensorData.severity ?? 'N/A'}
                         </Text>
                         <Text style={styles.infoText}>
-                            Battery: {sensorData.batteryLevel ?? 'N/A'}%
+                            Battery: {sensorData.battery ?? 'N/A'}%
                         </Text>
                         <Text style={styles.infoText}>
                             Charging: {sensorData.isCharging ? '🔌 Yes' : 'No'}

@@ -35,7 +35,7 @@ const SensorDashboard = ({ navigation }) => {
         sensorData.spo2,
         sensorData.heartRate,
         sensorData.fallDetected,
-        sensorData.batteryLevel,
+        sensorData.battery,
         sensorData.step,
     ]);
 
@@ -92,7 +92,7 @@ const SensorDashboard = ({ navigation }) => {
                 heartRateValid: sensorData.heartRateValid,
                 // fallDetected: sensorData.fallDetected,
                 // severity: sensorData.severity,
-                battery: sensorData.batteryLevel,
+                battery: sensorData.battery,
                 // isCharging: sensorData.isCharging,
                 // signalQuality: sensorData.signalQuality,
                 recordedAt: new Date().toISOString(),

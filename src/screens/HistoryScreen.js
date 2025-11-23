@@ -1,4 +1,4 @@
-// HistoryScreen.js - Lịch sử đo với API integration
+// HistoryScreen.js - Lịch sử đo với API integration (FIXED)
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -144,9 +144,15 @@ const HistoryScreen = ({ navigation }) => {
     };
 
     const renderItem = ({ item }) => {
+        // ✅ FIX: Validate và convert tất cả giá trị thành string/number an toàn
+        const spo2 = item.spo2 ?? 0;
+        const heartRate = item.heartRate ?? 0;
+        const battery = item.battery ?? 0;
+        const deviceId = item.deviceId ?? 'N/A';
+
         return (
             <View style={styles.card}>
-                {/* Header: Time & Date (Giữ nguyên) */}
+                {/* Header: Time & Date */}
                 <View style={styles.cardHeader}>
                     <View style={styles.timeContainer}>
                         <Icon name="time-outline" size={16} color="#0ea5e9" />
@@ -155,50 +161,50 @@ const HistoryScreen = ({ navigation }) => {
                     <Text style={styles.date}>{formatDate(item.recordedAt)}</Text>
                 </View>
 
-                {/* Data Row: Chuyển thành một hàng ngang ngắn gọn */}
+                {/* Data Row */}
                 <View style={styles.dataRow}>
                     {/* SPO2 */}
                     <View style={styles.dataShortItem}>
-                        <Icon name="water" size={16} color="#0ea5e9" /> {/* Giảm size icon */}
+                        <Icon name="water" size={16} color="#0ea5e9" />
                         <Text style={styles.dataShortLabel}>SpO2</Text>
                         <Text style={[
                             styles.dataShortValue,
-                            { color: getSpo2Color(item.spo2) }
+                            { color: getSpo2Color(spo2) }
                         ]}>
-                            {item.spo2}%
+                            {spo2}%
                         </Text>
                     </View>
 
                     {/* Heart Rate */}
                     <View style={styles.dataShortItem}>
-                        <Icon name="heart" size={16} color="#ef4444" /> {/* Giảm size icon */}
+                        <Icon name="heart" size={16} color="#ef4444" />
                         <Text style={styles.dataShortLabel}>Nhịp tim</Text>
                         <Text style={[
                             styles.dataShortValue,
-                            { color: getHeartRateColor(item.heartRate) }
+                            { color: getHeartRateColor(heartRate) }
                         ]}>
-                            {item.heartRate}
+                            {heartRate}
                         </Text>
                     </View>
 
                     {/* Battery */}
                     <View style={styles.dataShortItem}>
-                        <Icon name="battery-charging" size={16} color="#22c55e" /> {/* Giảm size icon */}
+                        <Icon name="battery-charging" size={16} color="#22c55e" />
                         <Text style={styles.dataShortLabel}>Pin</Text>
                         <Text style={[
                             styles.dataShortValue,
-                            { color: getBatteryColor(item.battery) }
+                            { color: getBatteryColor(battery) }
                         ]}>
-                            {item.battery}%
+                            {battery}%
                         </Text>
                     </View>
 
-                    {/* Device/ID (Tích hợp) */}
+                    {/* Device/ID */}
                     <View style={styles.dataShortItem}>
-                        <Icon name="hardware-chip" size={16} color="#8b5cf6" /> {/* Giảm size icon */}
+                        <Icon name="hardware-chip" size={16} color="#8b5cf6" />
                         <Text style={styles.dataShortLabel}>Thiết bị</Text>
                         <Text style={styles.dataShortValueId} numberOfLines={1}>
-                            #{item.id}
+                            #{String(deviceId)}
                         </Text>
                     </View>
                 </View>
@@ -329,15 +335,15 @@ const styles = StyleSheet.create({
         color: '#64748b',
     },
     listContent: {
-        padding: 12, // Giảm padding tổng thể của danh sách
+        padding: 12,
     },
     card: {
         backgroundColor: '#fff',
-        padding: 12, // **GIẢM PADDING THẺ**
-        borderRadius: 12, // Giảm nhẹ border radius
-        marginBottom: 8, // **GIẢM MARGIN THẺ**
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 8,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 }, // Giảm nhẹ shadow
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 4,
         elevation: 3,
@@ -346,9 +352,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 10, // **GIẢM MARGIN**
-        paddingBottom: 8, // **GIẢM PADDING**
-        borderBottomWidth: 0.5, // Giảm độ dày border
+        marginBottom: 10,
+        paddingBottom: 8,
+        borderBottomWidth: 0.5,
         borderBottomColor: '#f1f5f9',
     },
     timeContainer: {
@@ -356,96 +362,45 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     time: {
-        fontSize: 16, // **GIẢM FONT SIZE**
+        fontSize: 16,
         fontWeight: '700',
         color: '#0c4a6e',
-        marginLeft: 4, // Giảm margin
+        marginLeft: 4,
     },
     date: {
-        fontSize: 12, // **GIẢM FONT SIZE**
+        fontSize: 12,
         color: '#64748b',
         fontWeight: '600',
     },
-
-    // *** Bố cục mới: Hàng ngang ngắn gọn ***
     dataRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between', // Phân bố đều các mục
+        justifyContent: 'space-between',
     },
     dataShortItem: {
-        flex: 1, // Chia đều không gian
-        alignItems: 'center', // Căn giữa nội dung
+        flex: 1,
+        alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 4,
     },
     dataShortLabel: {
-        fontSize: 10, // **GIẢM FONT SIZE**
+        fontSize: 10,
         color: '#64748b',
-        marginTop: 2, // Giảm margin
+        marginTop: 2,
         textAlign: 'center',
     },
     dataShortValue: {
-        fontSize: 15, // **GIẢM FONT SIZE**
+        fontSize: 15,
         fontWeight: '700',
         color: '#1e293b',
-        marginTop: 2, // Giảm margin
+        marginTop: 2,
         textAlign: 'center',
     },
     dataShortValueId: {
-        fontSize: 12, // **GIẢM FONT SIZE**
+        fontSize: 12,
         color: '#8b5cf6',
         marginTop: 2,
         fontWeight: '600',
         textAlign: 'center',
-    },
-    dataGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginHorizontal: -6,
-    },
-    dataItem: {
-        width: '50%',
-        padding: 6,
-        marginBottom: 12,
-    },
-    dataLabel: {
-        fontSize: 12,
-        color: '#64748b',
-        marginTop: 4,
-        marginLeft: 2,
-    },
-    dataValue: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#1e293b',
-        marginTop: 2,
-        marginLeft: 2,
-    },
-    deviceId: {
-        fontSize: 11,
-        color: '#8b5cf6',
-        marginTop: 2,
-        marginLeft: 2,
-        fontWeight: '600',
-    },
-    signalQuality: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 8,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#f1f5f9',
-    },
-    signalText: {
-        fontSize: 12,
-        color: '#64748b',
-        marginLeft: 6,
-    },
-    recordId: {
-        fontSize: 11,
-        color: '#94a3b8',
-        marginTop: 8,
-        textAlign: 'right',
     },
     emptyContainer: {
         flex: 1,

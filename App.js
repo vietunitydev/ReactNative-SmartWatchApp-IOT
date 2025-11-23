@@ -18,6 +18,7 @@ import RelationsScreen from "./src/screens/RelationsScreen";
 import PatientDetailScreen from "./src/screens/PatientDetailScreen";
 import FallAlertModal from "./src/components/FallAlertModal";
 import SensorSender from "./src/screens/SensorSender";
+import SensorDashboard from "./src/screens/SensorDashboard";
 
 const Stack = createNativeStackNavigator();
 
@@ -52,6 +53,7 @@ const AppNavigator = () => {
                         <Stack.Screen name="Location" component={LocationScreen} />
                         <Stack.Screen name="History" component={HistoryScreen} />
                         <Stack.Screen name="Debug" component={DebugScreen} />
+                        <Stack.Screen name="SensorDashboard" component={SensorDashboard} />
                         <Stack.Screen name="Relations" component={RelationsScreen} />
                         <Stack.Screen name="PatientDetail" component={PatientDetailScreen} />
                     </>

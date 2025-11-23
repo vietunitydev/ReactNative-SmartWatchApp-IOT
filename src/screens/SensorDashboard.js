@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIoT } from '../contexts/IoTContext';
-import api from '../services/api';
+import apiService from "../services/api.service";
 
 const { width } = Dimensions.get('window');
 
@@ -22,7 +22,7 @@ const SensorDashboard = ({ navigation }) => {
     // States
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState(null);
-    const [syncStatus, setSyncStatus] = useState('idle'); // idle, syncing, success, error
+    const [syncStatus, setSyncStatus] = useState('idle');
     const [syncCount, setSyncCount] = useState(0);
     const [errorCount, setErrorCount] = useState(0);
 
@@ -33,13 +33,15 @@ const SensorDashboard = ({ navigation }) => {
     // Auto sync data khi sensor data thay đổi
     useEffect(() => {
         if (sensorData.spo2 !== null && isBluetoothConnected) {
-            handleAutoSync();
+            // handleAutoSync();
         }
+
+        console.log(sensorData)
     }, [
         sensorData.spo2,
         sensorData.heartRate,
         sensorData.fallDetected,
-        sensorData.batteryLevel,
+        sensorData.battery,
         sensorData.step,
     ]);
 
@@ -81,56 +83,56 @@ const SensorDashboard = ({ navigation }) => {
     };
 
     // Auto sync data lên server
-    const handleAutoSync = async () => {
-        if (isSyncing) return; // Đang sync thì skip
-
-        setIsSyncing(true);
-        setSyncStatus('syncing');
-        startSyncAnimation();
-
-        try {
-            console.log('📤 Syncing data to server...');
-
-            const response = await api.post('/sensor-data/add', {
-                spo2: sensorData.spo2,
-                heartRate: sensorData.heartRate,
-                heartRateValid: sensorData.heartRateValid,
-                fallDetected: sensorData.fallDetected,
-                severity: sensorData.severity,
-                batteryLevel: sensorData.batteryLevel,
-                isCharging: sensorData.isCharging,
-                signalQuality: sensorData.signalQuality,
-                timestamp: new Date().toISOString(),
-                deviceId: sensorData.deviceId || connectedDevice?.id,
-                step: sensorData.step,
-            });
-
-            console.log('✅ Sync success:', response);
-
-            setSyncStatus('success');
-            setLastSyncTime(new Date());
-            setSyncCount(prev => prev + 1);
-
-            // Reset về idle sau 2s
-            setTimeout(() => {
-                setSyncStatus('idle');
-            }, 2000);
-
-        } catch (error) {
-            console.error('❌ Sync error:', error);
-
-            setSyncStatus('error');
-            setErrorCount(prev => prev + 1);
-
-            // Reset về idle sau 3s
-            setTimeout(() => {
-                setSyncStatus('idle');
-            }, 3000);
-        } finally {
-            setIsSyncing(false);
-            stopSyncAnimation();
-        }
-    };
+    // const handleAutoSync = async () => {
+    //     if (isSyncing) return; // Đang sync thì skip
+    //
+    //     setIsSyncing(true);
+    //     setSyncStatus('syncing');
+    //     startSyncAnimation();
+    //
+    //     try {
+    //         console.log('📤 Syncing data to server...');
+    //
+    //         const response = await apiService.post('/sensor-data/add', {
+    //             spo2: sensorData.spo2,
+    //             heartRate: sensorData.heartRate,
+    //             heartRateValid: sensorData.heartRateValid,
+    //             fallDetected: sensorData.fallDetected,
+    //             severity: sensorData.severity,
+    //             battery: sensorData.battery,
+    //             isCharging: sensorData.isCharging,
+    //             signalQuality: sensorData.signalQuality,
+    //             timestamp: new Date().toISOString(),
+    //             deviceId: sensorData.deviceId || connectedDevice?.id,
+    //             step: sensorData.step,
+    //         });
+    //
+    //         console.log('✅ Sync success:', response);
+    //
+    //         setSyncStatus('success');
+    //         setLastSyncTime(new Date());
+    //         setSyncCount(prev => prev + 1);
+    //
+    //         // Reset về idle sau 2s
+    //         setTimeout(() => {
+    //             setSyncStatus('idle');
+    //         }, 2000);
+    //
+    //     } catch (error) {
+    //         console.error('❌ Sync error:', error);
+    //
+    //         setSyncStatus('error');
+    //         setErrorCount(prev => prev + 1);
+    //
+    //         // Reset về idle sau 3s
+    //         setTimeout(() => {
+    //             setSyncStatus('idle');
+    //         }, 3000);
+    //     } finally {
+    //         setIsSyncing(false);
+    //         stopSyncAnimation();
+    //     }
+    // };
 
     // Manual sync
     const handleManualSync = () => {
@@ -138,7 +140,7 @@ const SensorDashboard = ({ navigation }) => {
             alert('Chưa có dữ liệu để đồng bộ');
             return;
         }
-        handleAutoSync();
+        // handleAutoSync();
     };
 
     // Get colors
@@ -313,9 +315,9 @@ const SensorDashboard = ({ navigation }) => {
                         <Text style={styles.dataLabel}>Pin</Text>
                         <Text style={[
                             styles.dataValue,
-                            { color: sensorData.batteryLevel < 20 ? '#ef4444' : '#22c55e' }
+                            { color: sensorData.battery < 20 ? '#ef4444' : '#22c55e' }
                         ]}>
-                            {sensorData.batteryLevel !== null ? `${sensorData.batteryLevel}%` : '--'}
+                            {sensorData.battery !== null ? `${sensorData.battery}%` : '--'}
                         </Text>
                         {sensorData.isCharging && (
                             <Text style={styles.chargingBadge}>Đang sạc</Text>

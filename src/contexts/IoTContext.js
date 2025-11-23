@@ -80,7 +80,7 @@ export const IoTProvider = ({ children }) => {
         heartRateValid: false,
         fallDetected: false,
         severity: null,
-        batteryLevel: null,
+        battery: null,
         isCharging: false,
         signalQuality: null,
         timestamp: null,
@@ -124,12 +124,12 @@ export const IoTProvider = ({ children }) => {
                     heartRateValid: data.heartRateValid,
                     fallDetected: data.fallDetected,
                     severity: data.severity,
-                    batteryLevel: data.batteryLevel,
+                    battery: data.battery,
                     isCharging: data.isCharging,
                     signalQuality: data.signalQuality,
                     timestamp: new Date(data.timestamp).toLocaleTimeString('vi-VN'),
                     deviceId: connectedDevice?.id || data.deviceId,
-                    step: null,
+                    step: data.step || 0,
                 });
 
                 // Lưu vào history
@@ -505,7 +505,7 @@ export const IoTProvider = ({ children }) => {
 
                             try {
                                 const data = JSON.parse(completeJson);
-                                addDebugLog(`✓ Parse thành công: SpO2=${data.spo2}, HR=${data.heartRate}, Battery=${data.batteryLevel}%`);
+                                addDebugLog(`✓ Parse thành công: SpO2=${data.spo2}, HR=${data.heartRate}, Battery=${data.battery}%`);
 
                                 setSensorData({
                                     spo2: data.spo2,
@@ -513,7 +513,7 @@ export const IoTProvider = ({ children }) => {
                                     heartRateValid: data.heartRateValid,
                                     fallDetected: data.fallDetected,
                                     severity: data.severity,
-                                    batteryLevel: data.batteryLevel,
+                                    battery: data.battery,
                                     isCharging: data.isCharging,
                                     signalQuality: data.signalQuality,
                                     timestamp: new Date().toLocaleTimeString('vi-VN'),
@@ -567,7 +567,7 @@ export const IoTProvider = ({ children }) => {
                 heartRateValid: false,
                 fallDetected: false,
                 severity: null,
-                batteryLevel: null,
+                battery: null,
                 isCharging: false,
                 signalQuality: null,
                 timestamp: null,
@@ -590,7 +590,7 @@ export const IoTProvider = ({ children }) => {
                     heartRateValid: false,
                     fallDetected: false,
                     severity: null,
-                    batteryLevel: null,
+                    battery: null,
                     isCharging: false,
                     signalQuality: null,
                     timestamp: null,

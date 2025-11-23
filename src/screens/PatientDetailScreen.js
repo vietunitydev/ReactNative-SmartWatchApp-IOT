@@ -86,7 +86,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
     heartRateValid: latestRecord?.heartRateValid ?? true,
     fallDetected: latestRecord?.fallDetected ?? false,
     severity: latestRecord?.severity || 'moderate',
-    batteryLevel: latestRecord?.battery ?? 0,
+    battery: latestRecord?.battery ?? 0,
     isCharging: latestRecord?.isCharging ?? false,
     signalQuality: latestRecord?.signalQuality || 'good',
     timestamp: latestRecord ? formatTimestamp(latestRecord.recordedAt) : 'Đang tải...',
@@ -206,15 +206,15 @@ const PatientDetailScreen = ({ route, navigation }) => {
                         name={
                           patient.isCharging
                               ? 'battery-charging'
-                              : patient.batteryLevel > 20
+                              : patient.battery > 20
                                   ? 'battery-half'
                                   : 'battery-dead'
                         }
                         size={24}
-                        color={patient.batteryLevel > 20 ? '#22c55e' : '#ef4444'}
+                        color={patient.battery > 20 ? '#22c55e' : '#ef4444'}
                     />
                     <Text style={styles.infoText}>
-                      {patient.batteryLevel}% {patient.isCharging && '(đang sạc)'}
+                      {patient.battery}% {patient.isCharging && '(đang sạc)'}
                     </Text>
                   </View>
 
