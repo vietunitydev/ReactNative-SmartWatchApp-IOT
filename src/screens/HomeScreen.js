@@ -266,27 +266,50 @@ const HomeScreen = ({ navigation }) => {
 
                 {/* Menu */}
                 <View style={styles.menuGrid}>
-                    {[
-                        { icon: 'bluetooth', label: 'Bluetooth', screen: 'Bluetooth' },
-                        { icon: 'time-outline', label: 'Lịch sử', screen: 'History' },
-                        { icon: 'location-outline', label: 'Vị trí', screen: 'Location' },
-                        { icon: 'people-outline', label: 'Người thân', screen: 'Relations' },
-                        { icon: 'bluetooth', label: 'Debug', screen: 'Debug' },
-                        { icon: 'bluetooth', label: 'SensorDashboard', screen: 'SensorDashboard' },
-                    ].map((item, i) => (
-                        <TouchableOpacity
-                            key={i}
-                            style={styles.menuItem}
-                            onPress={() => navigation.navigate(item.screen)}
-                            activeOpacity={0.75}
-                        >
-                            <View style={styles.menuIconBg}>
-                                <Icon name={item.icon} size={32} color="#0ea5e9" />
-                            </View>
-                            <Text style={styles.menuLabel}>{item.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+  {[
+    { icon: 'bluetooth', label: 'Bluetooth', screen: 'Bluetooth' },
+    { icon: 'time-outline', label: 'Lịch sử', screen: 'History' },
+    { icon: 'location-outline', label: 'Vị trí', screen: 'Location' },
+    { icon: 'people-outline', label: 'Người thân', screen: 'Relations' },
+    { icon: 'bug-outline', label: 'Debug', screen: 'Debug' },
+    { icon: 'stats-chart-outline', label: 'Dashboard', screen: 'SensorDashboard' },
+    // Tách riêng item ChatBot để truy cập được sensorData
+  ].map((item, i) => (
+    <TouchableOpacity
+      key={i}
+      style={styles.menuItem}
+      onPress={() => {
+        if (item.screen === 'ChatBot') {
+          // Trường hợp đặc biệt: truyền dữ liệu sensor
+          navigation.navigate('ChatBot', { latestSensorData: sensorData });
+        } else {
+          // Các màn hình khác: navigate bình thường
+          navigation.navigate(item.screen);
+        }
+      }}
+      activeOpacity={0.75}
+    >
+      <View style={styles.menuIconBg}>
+        <Icon name={item.screen === 'ChatBot' ? 'chatbubble-ellipses-outline' : item.icon} size={32} color="#0ea5e9" />
+      </View>
+      <Text style={styles.menuLabel}>
+        {item.screen === 'ChatBot' ? 'Trợ lý sức khỏe' : item.label}
+      </Text>
+    </TouchableOpacity>
+  ))}
+
+  {/* Hoặc cách đẹp hơn: tách riêng item ChatBot ra ngoài map */}
+  <TouchableOpacity
+    style={styles.menuItem}
+    onPress={() => navigation.navigate('ChatBot', { latestSensorData: sensorData })}
+    activeOpacity={0.75}
+  >
+    <View style={styles.menuIconBg}>
+      <Icon name="chatbubble-ellipses-outline" size={32} color="#0ea5e9" />
+    </View>
+    <Text style={styles.menuLabel}>Trợ lý sức khỏe</Text>
+  </TouchableOpacity>
+</View>
             </ScrollView>
         </SafeAreaView>
     );

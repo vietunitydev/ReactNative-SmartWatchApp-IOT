@@ -65,7 +65,7 @@ export const IoTProvider = ({ children }) => {
     // ============================================
     // FAKE DATA MODE - BIẾN MỚI
     // ============================================
-    const [useFakeData, setUseFakeData] = useState(true); // false = real data, true = fake data
+    const [useFakeData, setUseFakeData] = useState(false); // false = real data, true = fake data
     const [fakeDataInterval, setFakeDataInterval] = useState(1000); // Interval cho fake data (ms)
 
     // Connection states
@@ -417,7 +417,9 @@ export const IoTProvider = ({ children }) => {
                 timeout: 10000
             });
             addDebugLog('Đã kết nối thành công!');
+            await apiService.addDevice({id: "ESP32-001", name: device.name || 'Unknown', macAddress:deviceId});
 
+            console.log('Connected to device:', device);
             // YÊU CẦU MTU SIZE LỚN HƠN
             try {
                 const mtu = await device.requestMTU(512);
@@ -513,7 +515,7 @@ export const IoTProvider = ({ children }) => {
                                     heartRateValid: data.heartRateValid,
                                     fallDetected: data.fallDetected,
                                     severity: data.severity,
-                                    battery: data.battery,
+                                    battery: data.batteryLevel,
                                     isCharging: data.isCharging,
                                     signalQuality: data.signalQuality,
                                     timestamp: new Date().toLocaleTimeString('vi-VN'),

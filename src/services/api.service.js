@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Cấu hình base URL
-const BASE_URL = 'http://10.0.2.2:8080/api';
+const BASE_URL = 'http://172.11.107.99:8080/api';
 // const BASE_URL = 'http://localhost:8080/api';
 
 // Tạo axios instance
