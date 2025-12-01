@@ -66,7 +66,8 @@ export const IoTProvider = ({ children }) => {
     // FAKE DATA MODE - BIẾN MỚI
     // ============================================
     const [useFakeData, setUseFakeData] = useState(false); // false = real data, true = fake data
-    const [fakeDataInterval, setFakeDataInterval] = useState(1000); // Interval cho fake data (ms)
+    const [fakeDataInterval, setFakeDataInterval] = useState(1000);
+    const CHARACTERISTIC_UUID_RX = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'; // Interval cho fake data (ms)
 
     // Connection states
     const [isBluetoothConnected, setIsBluetoothConnected] = useState(false);
@@ -417,7 +418,7 @@ export const IoTProvider = ({ children }) => {
                 timeout: 10000
             });
             addDebugLog('Đã kết nối thành công!');
-            await apiService.addDevice({id: "ESP32-001", name: device.name || 'Unknown', macAddress:deviceId});
+            await apiService.addDevice({id: device.name, name: device.name || 'Unknown', macAddress:deviceId});
 
             console.log('Connected to device:', device);
             // YÊU CẦU MTU SIZE LỚN HƠN
@@ -638,6 +639,43 @@ export const IoTProvider = ({ children }) => {
             addDebugLog(`Lỗi đọc: ${error.message}`);
             Alert.alert('Lỗi', 'Không thể đọc dữ liệu từ thiết bị');
             return null;
+        }
+    };
+    const syncTimeToDevice = async () => {
+        if (!isBluetoothConnected || !connectedDevice) {
+            Alert.alert('Lỗi', 'Chưa kết nối đến thiết bị');
+            return false;
+        }
+
+        // Lấy epoch time hiện tại (Unix timestamp, giây)
+        const epoch = Math.floor(Date.now() / 1000);
+        const message = `T${epoch}`;
+        addDebugLog(`Chuẩn bị gửi đồng bộ giờ: ${message}`);
+
+        // ===== FAKE MODE =====
+        if (useFakeData || connectedDevice.id.startsWith('FAKE-')) {
+            addDebugLog('🎭 FAKE MODE: Giả lập gửi đồng bộ giờ...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            addDebugLog(`✓ Đã gửi thành công (Fake): ${message}`);
+            return true;
+        }
+
+        // ===== REAL MODE =====
+        try {
+            const base64Message = Buffer.from(message, 'utf-8').toString('base64');
+            addDebugLog(`Gửi base64: ${base64Message}`);
+            await connectedDevice.writeCharacteristicWithResponseForService(
+                SERVICE_UUID,
+                CHARACTERISTIC_UUID_RX,
+                base64Message
+            );
+            addDebugLog('✓ Đã gửi thành công đồng bộ giờ!');
+            return true;
+        } catch (error) {
+            console.error('Sync time error:', error);
+            addDebugLog(`✗ Lỗi gửi: ${error.message}`);
+            Alert.alert('Lỗi', 'Không thể gửi dữ liệu đồng bộ giờ');
+            return false;
         }
     };
 

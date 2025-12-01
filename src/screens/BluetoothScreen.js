@@ -21,7 +21,8 @@ const BluetoothScreen = ({ navigation }) => {
     scanBluetoothDevices,
     connectBluetooth,
     disconnectBluetooth,
-    loading
+    loading,
+    syncTimeToDevice
   } = useIoT();
 
   const [scanning, setScanning] = useState(false);
@@ -65,6 +66,12 @@ const BluetoothScreen = ({ navigation }) => {
               const success = await connectBluetooth(device.id);
               if (success) {
                 Alert.alert('Thành công', 'Đã kết nối với thiết bị!');
+                const syncSuccess = await syncTimeToDevice();
+                if (syncSuccess) {
+                  console.log('Đồng bộ giờ thành công');
+                } else {
+                  console.log('Đồng bộ giờ thất bại');
+                }
               } else {
                 Alert.alert('Lỗi', 'Không thể kết nối với thiết bị');
               }
