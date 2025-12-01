@@ -89,7 +89,7 @@ const SensorDashboard = ({ navigation }) => {
             const response = await apiService.saveRecord( {
                 spo2: sensorData.spo2,
                 heartRate: sensorData.heartRate,
-                heartRateValid: true,
+                heartRateValid: sensorData.heartRate,
                 // fallDetected: sensorData.fallDetected,
                 // severity: sensorData.severity,
                 battery: sensorData.battery,

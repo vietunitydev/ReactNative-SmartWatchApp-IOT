@@ -417,7 +417,7 @@ export const IoTProvider = ({ children }) => {
                 timeout: 10000
             });
             addDebugLog('Đã kết nối thành công!');
-            await apiService.addDevice({id: "ESP32-001", name: device.name || 'Unknown', macAddress:deviceId});
+            await apiService.addDevice({id: device.name, name: device.name || 'Unknown', macAddress:deviceId});
 
             console.log('Connected to device:', device);
             // YÊU CẦU MTU SIZE LỚN HƠN
