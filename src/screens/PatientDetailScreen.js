@@ -19,7 +19,9 @@ const PatientDetailScreen = ({ route, navigation }) => {
   const { username, name } = route.params;
 
   const [latestRecord, setLatestRecord] = useState(null);
+  const [latestFall, setLatestFall] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fallLoading, setFallLoading] = useState(true);
 
   const getSpo2Color = (value) => {
     if (value >= 95) return '#22c55e';
@@ -36,7 +38,34 @@ const PatientDetailScreen = ({ route, navigation }) => {
   const formatTimestamp = (isoString) => {
     if (!isoString) return '—';
     const date = new Date(isoString);
-    return date.toLocaleString();
+    return date.toLocaleString('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const getSeverityText = (severity) => {
+    const severityMap = {
+      'low': 'Thấp',
+      'medium': 'Trung bình',
+      'high': 'Cao',
+      'critical': 'Nguy hiểm'
+    };
+    return severityMap[severity?.toLowerCase()] || severity || 'Không xác định';
+  };
+
+  const getSeverityColor = (severity) => {
+    const colorMap = {
+      'low': '#22c55e',
+      'medium': '#f59e0b',
+      'high': '#ef4444',
+      'critical': '#dc2626'
+    };
+    return colorMap[severity?.toLowerCase()] || '#64748b';
   };
 
   // Hàm fetch record mới nhất
@@ -45,9 +74,8 @@ const PatientDetailScreen = ({ route, navigation }) => {
       const res = await apiService.getRecords(username);
 
       if (Array.isArray(res) && res.length > 0) {
-        // Tùy backend: nếu record mới nhất ở đầu / cuối thì chỉnh ở đây
-        const latest = res[0]; // hoặc res[res.length - 1]
-        console.log(latest)
+        const latest = res[0];
+        console.log('Latest record:', latest);
         setLatestRecord(latest);
       } else {
         setLatestRecord(null);
@@ -59,13 +87,37 @@ const PatientDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  // Polling mỗi 5s
+  // Hàm fetch dữ liệu ngã gần nhất
+  const fetchLatestFall = async () => {
+    try {
+      const response = await apiService.getFalls(username);
+
+      if (response && response.length > 0) {
+        const latestFallData = response.sort((a, b) =>
+            new Date(b.detectedAt) - new Date(a.detectedAt)
+        )[0];
+
+        console.log('Latest fall:', latestFallData);
+        setLatestFall(latestFallData);
+      } else {
+        setLatestFall(null);
+      }
+    } catch (err) {
+      console.error('Error fetching falls:', err);
+      setLatestFall(null);
+    } finally {
+      setFallLoading(false);
+    }
+  };
+
+  // Polling mỗi 5s cho cả record và fall
   useEffect(() => {
     let isMounted = true;
 
     const wrappedFetch = async () => {
       if (!isMounted) return;
       await fetchLatestRecord();
+      await fetchLatestFall();
     };
 
     wrappedFetch(); // gọi lần đầu khi vào screen
@@ -118,7 +170,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
               </View>
           )}
 
-          {/* Main Card – vẫn dùng UI cũ nhưng lấy dữ liệu từ patient (map từ latestRecord) */}
+          {/* Main Card */}
           {!loading && !latestRecord && (
               <View style={{ paddingHorizontal: 20, paddingTop: 40 }}>
                 <Text style={{ textAlign: 'center', color: '#64748b' }}>
@@ -238,26 +290,94 @@ const PatientDetailScreen = ({ route, navigation }) => {
               </View>
           )}
 
-        {/* Action Buttons */}
-        {/*<View style={styles.actionButtons}>*/}
-        {/*  <TouchableOpacity*/}
-        {/*    style={styles.actionBtn}*/}
-        {/*    onPress={() => navigation.navigate('Location', { patient })}*/}
-        {/*  >*/}
-        {/*    <Icon name="location" size={26} color="#0ea5e9" />*/}
-        {/*    <Text style={styles.actionText}>Xem vị trí</Text>*/}
-        {/*  </TouchableOpacity>*/}
+          {/* Card hiển thị thông tin ngã gần nhất */}
+          {!fallLoading && latestFall && (
+              <View style={styles.fallHistoryCard}>
+                <View style={styles.fallHistoryHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Icon name="alert-circle" size={24} color="#ef4444" />
+                    <Text style={styles.fallHistoryTitle}>Lần ngã gần nhất</Text>
+                  </View>
+                  <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(latestFall.severity) }]}>
+                    <Text style={styles.severityBadgeText}>{getSeverityText(latestFall.severity).toUpperCase()}</Text>
+                  </View>
+                </View>
 
-        {/*  <TouchableOpacity*/}
-        {/*    style={styles.actionBtn}*/}
-        {/*    onPress={() => navigation.navigate('History', { patient })}*/}
-        {/*  >*/}
-        {/*    <Icon name="time-outline" size={26} color="#0ea5e9" />*/}
-        {/*    <Text style={styles.actionText}>Lịch sử</Text>*/}
-        {/*  </TouchableOpacity>*/}
-        {/*</View>*/}
-      </ScrollView>
-    </SafeAreaView>
+                <View style={styles.fallInfoContainer}>
+                  <View style={styles.fallInfoRow}>
+                    <View style={styles.fallIconCircle}>
+                      <Icon name="time-outline" size={20} color="#0ea5e9" />
+                    </View>
+                    <View style={styles.fallTextContainer}>
+                      <Text style={styles.fallLabel}>Thời gian phát hiện</Text>
+                      <Text style={styles.fallValue}>{formatTimestamp(latestFall.detectedAt)}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.fallInfoRow}>
+                    <View style={styles.fallIconCircle}>
+                      <Icon name="heart" size={20} color="#ef4444" />
+                    </View>
+                    <View style={styles.fallTextContainer}>
+                      <Text style={styles.fallLabel}>Nhịp tim khi ngã</Text>
+                      <Text style={styles.fallValue}>{latestFall.heartRate} BPM</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.fallInfoRow}>
+                    <View style={styles.fallIconCircle}>
+                      <Icon name="water" size={20} color="#06b6d4" />
+                    </View>
+                    <View style={styles.fallTextContainer}>
+                      <Text style={styles.fallLabel}>SpO₂ khi ngã</Text>
+                      <Text style={styles.fallValue}>{latestFall.spo2}%</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.fallInfoRow}>
+                    <View style={styles.fallIconCircle}>
+                      <Icon name="location" size={20} color="#22c55e" />
+                    </View>
+                    <View style={styles.fallTextContainer}>
+                      <Text style={styles.fallLabel}>Tọa độ GPS</Text>
+                      <Text style={styles.fallValue}>
+                        {latestFall.latitude.toFixed(4)}°, {latestFall.longitude.toFixed(4)}°
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                    style={styles.viewLocationBtn}
+                    onPress={() => navigation.navigate('Location')}
+                    activeOpacity={0.8}
+                >
+                  <Icon name="map" size={20} color="#fff" />
+                  <Text style={styles.viewLocationBtnText}>Xem vị trí trên bản đồ</Text>
+                </TouchableOpacity>
+              </View>
+          )}
+
+          {/* Hiển thị khi đang tải thông tin ngã */}
+          {fallLoading && (
+              <View style={styles.fallHistoryCard}>
+                <ActivityIndicator size="small" color="#0ea5e9" />
+                <Text style={{ marginTop: 8, color: '#64748b', textAlign: 'center' }}>
+                  Đang tải thông tin ngã...
+                </Text>
+              </View>
+          )}
+
+          {/* Hiển thị khi không có dữ liệu ngã */}
+          {!fallLoading && !latestFall && (
+              <View style={styles.fallHistoryCard}>
+                <Icon name="shield-checkmark" size={48} color="#22c55e" />
+                <Text style={styles.noFallText}>Chưa phát hiện té ngã nào</Text>
+                <Text style={styles.noFallSubText}>Người dùng này chưa có lịch sử té ngã</Text>
+              </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
   );
 };
 
@@ -344,27 +464,128 @@ const styles = StyleSheet.create({
   },
   timestampText: { marginLeft: 6, fontSize: 13, color: '#64748b', fontWeight: '500' },
 
-  actionButtons: {
+  // Fall History Card Styles
+  fallHistoryCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+
+  fallHistoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
-  actionBtn: {
-    backgroundColor: '#f0f9ff',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 16,
+
+  fallHistoryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0c4a6e',
+    marginLeft: 8,
+  },
+
+  severityBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+
+  severityBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  fallInfoContainer: {
+    marginBottom: 16,
+  },
+
+  fallInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 14,
+    backgroundColor: '#f8fafc',
+    padding: 14,
+    borderRadius: 12,
+  },
+
+  fallIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#fff',
     justifyContent: 'center',
-    width: '48%',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
+    alignItems: 'center',
+    marginRight: 12,
+  },
+
+  fallTextContainer: {
+    flex: 1,
+  },
+
+  fallLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+
+  fallValue: {
+    fontSize: 15,
+    color: '#0f172a',
+    fontWeight: '700',
+  },
+
+  viewLocationBtn: {
+    backgroundColor: '#0ea5e9',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#0ea5e9',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 6,
   },
-  actionText: { marginLeft: 10, fontWeight: '600', color: '#0ea5e9', fontSize: 15 },
+
+  viewLocationBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+
+  // No fall data styles
+  noFallText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+
+  noFallSubText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 4,
+  },
 });
 
 export default PatientDetailScreen;
