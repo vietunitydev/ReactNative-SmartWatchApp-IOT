@@ -77,7 +77,7 @@ const FallAlertModal = () => {
                 console.log("Send xong api (detect Fall ) toi server")
 
             },
-            (error) => {
+            async (error) => {
                 console.log("Location error:", error);
 
                 // fallback nếu không có GPS
@@ -94,6 +94,20 @@ const FallAlertModal = () => {
 
                 setVisible(true);
                 startAnimations();
+
+                console.log("Bat dau send api (detect Fall ) toi server")
+                // ⬇⬇⬇ Gửi API detect fall
+                await apiService.detectFall({
+                    deviceId: sensorData.deviceId,
+                    severity: sensorData.severity,
+                    spo2: sensorData.spo2,
+                    heartRate: sensorData.heartRate,
+                    detectedAt: new Date().toISOString(),
+                    latitude: null,
+                    longitude: null
+                });
+
+                console.log("Send xong api (detect Fall ) toi server")
             },
             {
                 enableHighAccuracy: true,

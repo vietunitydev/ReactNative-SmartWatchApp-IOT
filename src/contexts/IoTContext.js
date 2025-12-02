@@ -65,7 +65,7 @@ export const IoTProvider = ({ children }) => {
     // ============================================
     // FAKE DATA MODE - BIẾN MỚI
     // ============================================
-    const [useFakeData, setUseFakeData] = useState(true); // false = real data, true = fake data
+    const [useFakeData, setUseFakeData] = useState(false); // false = real data, true = fake data
     const [fakeDataInterval, setFakeDataInterval] = useState(1000);
     const CHARACTERISTIC_UUID_RX = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'; // Interval cho fake data (ms)
 

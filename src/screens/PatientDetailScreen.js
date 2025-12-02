@@ -349,7 +349,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
 
                 <TouchableOpacity
                     style={styles.viewLocationBtn}
-                    onPress={() => navigation.navigate('Location')}
+                    // onPress={() => navigation.navigate('Location')}
                     activeOpacity={0.8}
                 >
                   <Icon name="map" size={20} color="#fff" />
