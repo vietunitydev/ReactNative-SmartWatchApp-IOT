@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -66,6 +68,43 @@ const PatientDetailScreen = ({ route, navigation }) => {
       'critical': '#dc2626'
     };
     return colorMap[severity?.toLowerCase()] || '#64748b';
+  };
+
+  // Hàm mở Google Maps
+  const openGoogleMaps = async (latitude, longitude) => {
+    if (!latitude || !longitude) {
+      Alert.alert('Lỗi', 'Không có dữ liệu vị trí');
+      return;
+    }
+
+    // URL khác nhau cho iOS và Android
+    const scheme = Platform.select({
+      ios: `maps:0,0?q=${latitude},${longitude}`,
+      android: `geo:0,0?q=${latitude},${longitude}`
+    });
+
+    const url = Platform.select({
+      ios: `http://maps.apple.com/?ll=${latitude},${longitude}&q=Vị trí té ngã`,
+      android: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+    });
+
+    try {
+      const supported = await Linking.canOpenURL(scheme);
+
+      if (supported) {
+        await Linking.openURL(scheme);
+      } else {
+        // Fallback to browser
+        await Linking.openURL(url);
+      }
+    } catch (error) {
+      console.error('Error opening maps:', error);
+      Alert.alert(
+          'Lỗi',
+          'Không thể mở ứng dụng bản đồ. Vui lòng kiểm tra lại.',
+          [{ text: 'OK' }]
+      );
+    }
   };
 
   // Hàm fetch record mới nhất
@@ -349,7 +388,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
 
                 <TouchableOpacity
                     style={styles.viewLocationBtn}
-                    // onPress={() => navigation.navigate('Location')}
+                    onPress={() => openGoogleMaps(latestFall.latitude, latestFall.longitude)}
                     activeOpacity={0.8}
                 >
                   <Icon name="map" size={20} color="#fff" />

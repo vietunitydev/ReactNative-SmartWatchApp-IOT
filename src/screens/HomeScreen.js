@@ -271,8 +271,8 @@ const HomeScreen = ({ navigation }) => {
     { icon: 'time-outline', label: 'Lịch sử', screen: 'History' },
     { icon: 'location-outline', label: 'Vị trí', screen: 'Location' },
     { icon: 'people-outline', label: 'Người thân', screen: 'Relations' },
-    { icon: 'bug-outline', label: 'Debug', screen: 'Debug' },
-    { icon: 'stats-chart-outline', label: 'Dashboard', screen: 'SensorDashboard' },
+    // { icon: 'bug-outline', label: 'Debug', screen: 'Debug' },
+    // { icon: 'stats-chart-outline', label: 'Dashboard', screen: 'SensorDashboard' },
     // Tách riêng item ChatBot để truy cập được sensorData
   ].map((item, i) => (
     <TouchableOpacity
